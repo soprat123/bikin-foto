@@ -36,22 +36,32 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-            echo "CLOUDFLARE_API_TOKEN belum ditambahkan ke GitHub Actions secrets."
+            echo "::error::CLOUDFLARE_API_TOKEN belum ditambahkan ke Repository secrets."
             exit 1
           fi
           if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
-            echo "CLOUDFLARE_ACCOUNT_ID belum ditambahkan ke GitHub Actions secrets."
+            echo "::error::CLOUDFLARE_ACCOUNT_ID belum ditambahkan ke Repository secrets."
             exit 1
           fi
+          echo "GitHub secrets ditemukan."
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Verify Cloudflare authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler whoami
 
       - name: Resolve D1 database and create deployment config
         shell: bash
         run: |
           set -euo pipefail
-          D1_LIST="$(npx wrangler d1 list --json)"
+          if ! D1_LIST="$(npx wrangler d1 list --json)"; then
+            echo "::error::Tidak dapat membaca daftar D1. Pastikan API Token memiliki izin Account > D1 > Read serta Workers Scripts > Edit."
+            exit 1
+          fi
           export D1_LIST
 
           node <<'NODE'
@@ -62,7 +72,7 @@ jobs:
 
           if (!database) {
             throw new Error(
-              'Database D1 "bikin-foto-db" tidak ditemukan pada akun Cloudflare ini.',
+              'Database D1 "bikin-foto-db" tidak ditemukan pada akun Cloudflare yang dipilih.',
             );
           }
 
@@ -72,6 +82,7 @@ jobs:
           }
 
           const config = JSON.parse(fs.readFileSync("wrangler.jsonc", "utf8"));
+          config.account_id = process.env.CLOUDFLARE_ACCOUNT_ID;
           config.d1_databases = [
             {
               binding: "DB",
@@ -89,4 +100,10 @@ jobs:
           NODE
 
       - name: Deploy Worker
-        run: npx wrangler deploy --config wrangler.ci.jsonc --keep-vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --config wrangler.ci.jsonc --keep-vars
+
+      - name: Deployment completed
+        run: echo "Worker bikin-foto berhasil dideploy ke Cloudflare."
