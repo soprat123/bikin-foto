@@ -1,32 +1,351 @@
-const MAIN_MENU = {
-  keyboard: [
-    [
-      { text: "🖼 Generate Gambar" },
-      { text: "🎬 Generate Video" },
-    ],
-    [
-      { text: "💰 Harga" },
-      { text: "➕ Top Up" },
-    ],
-    [
-      { text: "👛 Saldo" },
-      { text: "🆘 Bantuan" },
-    ],
+const MAIN_MENU = keyboard(
+  [
+    ["🖼 Generate Foto", "🎬 Generate Video"],
+    ["💰 Harga", "✏️ Edit Foto"],
+    ["👛 Saldo", "➕ Top Up"],
+    ["🆘 Bantuan"],
   ],
-  resize_keyboard: true,
-  is_persistent: true,
-  input_field_placeholder: "Pilih layanan...",
-};
+  "Pilih layanan...",
+);
+
+const FOTO_MENU = keyboard(
+  [["✨ Buat Foto Baru"], ["✏️ Edit Foto"], ["⬅️ Menu Utama"]],
+  "Pilih menu foto...",
+);
+
+const FOTO_GENERATE_MENU = keyboard(
+  [
+    ["Standard 1K — Rp500"],
+    ["Standard 2K — Rp500"],
+    ["High Quality 1K — Rp1.000"],
+    ["High Quality 2K — Rp1.500"],
+    ["⬅️ Kembali ke Foto"],
+  ],
+  "Pilih kualitas foto...",
+);
+
+const FOTO_EDIT_MENU = keyboard(
+  [
+    ["Edit Standard 1K — Rp500"],
+    ["Edit Standard 2K — Rp500"],
+    ["Edit High Quality 1K — Rp1.000"],
+    ["Edit High Quality 2K — Rp1.500"],
+    ["⬅️ Kembali ke Foto"],
+  ],
+  "Pilih kualitas edit foto...",
+);
+
+const VIDEO_MENU = keyboard(
+  [["🎞 Video Standard"], ["🚀 Video High Quality"], ["⬅️ Menu Utama"]],
+  "Pilih kualitas video...",
+);
+
+const VIDEO_STANDARD_MENU = keyboard(
+  [["480p Standard"], ["720p Standard"], ["⬅️ Kembali ke Video"]],
+  "Pilih resolusi video standard...",
+);
+
+const VIDEO_STANDARD_480_MENU = keyboard(
+  [
+    ["480p • 5 detik — Rp5.000"],
+    ["480p • 10 detik — Rp10.000"],
+    ["480p • 15 detik — Rp15.000"],
+    ["⬅️ Kembali ke Video Standard"],
+  ],
+  "Pilih durasi video 480p standard...",
+);
+
+const VIDEO_STANDARD_720_MENU = keyboard(
+  [
+    ["720p • 5 detik — Rp7.000"],
+    ["720p • 10 detik — Rp15.000"],
+    ["720p • 15 detik — Rp20.000"],
+    ["⬅️ Kembali ke Video Standard"],
+  ],
+  "Pilih durasi video 720p standard...",
+);
+
+const VIDEO_HQ_MENU = keyboard(
+  [
+    ["480p High Quality"],
+    ["720p High Quality"],
+    ["1080p High Quality"],
+    ["⬅️ Kembali ke Video"],
+  ],
+  "Pilih resolusi video high quality...",
+);
+
+const VIDEO_HQ_480_MENU = keyboard(
+  [
+    ["480p HQ • 5 detik — Rp8.000"],
+    ["480p HQ • 10 detik — Rp16.000"],
+    ["480p HQ • 15 detik — Rp23.000"],
+    ["⬅️ Kembali ke Video High Quality"],
+  ],
+  "Pilih durasi video high quality 480p...",
+);
+
+const VIDEO_HQ_720_MENU = keyboard(
+  [
+    ["720p HQ • 5 detik — Rp14.000"],
+    ["720p HQ • 10 detik — Rp27.000"],
+    ["720p HQ • 15 detik — Rp40.000"],
+    ["⬅️ Kembali ke Video High Quality"],
+  ],
+  "Pilih durasi video high quality 720p...",
+);
+
+const VIDEO_HQ_1080_MENU = keyboard(
+  [
+    ["1080p HQ • 5 detik — Rp24.000"],
+    ["1080p HQ • 10 detik — Rp47.000"],
+    ["1080p HQ • 15 detik — Rp70.000"],
+    ["⬅️ Kembali ke Video High Quality"],
+  ],
+  "Pilih durasi video high quality 1080p...",
+);
 
 const BOT_COMMANDS = [
   { command: "start", description: "Mulai menggunakan bot" },
-  { command: "gambar", description: "Generate gambar AI" },
-  { command: "video", description: "Generate video AI" },
+  { command: "menu", description: "Tampilkan menu utama" },
+  { command: "foto", description: "Menu generate foto" },
+  { command: "editfoto", description: "Menu edit foto" },
+  { command: "video", description: "Menu generate video" },
   { command: "harga", description: "Lihat daftar harga" },
   { command: "topup", description: "Isi saldo" },
   { command: "saldo", description: "Periksa saldo" },
   { command: "bantuan", description: "Hubungi bantuan" },
 ];
+
+const PRICE_LIST_TEXT = `💰 DAFTAR HARGA BIKIN FOTO
+
+━━━━━━━━━━━━━━━━━━
+🖼 GENERATE FOTO
+━━━━━━━━━━━━━━━━━━
+
+STANDARD
+• 1K — Rp500
+• 2K — Rp500
+
+HIGH QUALITY
+• 1K — Rp1.000
+• 2K — Rp1.500
+
+━━━━━━━━━━━━━━━━━━
+🎬 VIDEO STANDARD
+━━━━━━━━━━━━━━━━━━
+
+480p
+• 5 detik — Rp5.000
+• 10 detik — Rp10.000
+• 15 detik — Rp15.000
+
+720p
+• 5 detik — Rp7.000
+• 10 detik — Rp15.000
+• 15 detik — Rp20.000
+
+━━━━━━━━━━━━━━━━━━
+🚀 VIDEO HIGH QUALITY
+━━━━━━━━━━━━━━━━━━
+
+480p
+• 5 detik — Rp8.000
+• 10 detik — Rp16.000
+• 15 detik — Rp23.000
+
+720p
+• 5 detik — Rp14.000
+• 10 detik — Rp27.000
+• 15 detik — Rp40.000
+
+1080p
+• 5 detik — Rp24.000
+• 10 detik — Rp47.000
+• 15 detik — Rp70.000
+
+━━━━━━━━━━━━━━━━━━
+✏️ EDIT FOTO
+━━━━━━━━━━━━━━━━━━
+
+STANDARD
+• 1K — Rp500
+• 2K — Rp500
+
+HIGH QUALITY
+• 1K — Rp1.000
+• 2K — Rp1.500
+
+━━━━━━━━━━━━━━━━━━
+📝 INFORMASI
+━━━━━━━━━━━━━━━━━━
+
+• Pembayaran menggunakan saldo bot.
+• Saldo dipotong setelah pesanan dikonfirmasi.
+• Waktu proses bergantung pada antrean server.
+• Hasil setiap proses dapat berbeda.`;
+
+const PHOTO_GENERATE_OPTIONS = {
+  "Standard 1K — Rp500": {
+    kind: "Generate Foto",
+    quality: "Standard",
+    resolution: "1K",
+    price: "Rp500",
+  },
+  "Standard 2K — Rp500": {
+    kind: "Generate Foto",
+    quality: "Standard",
+    resolution: "2K",
+    price: "Rp500",
+  },
+  "High Quality 1K — Rp1.000": {
+    kind: "Generate Foto",
+    quality: "High Quality",
+    resolution: "1K",
+    price: "Rp1.000",
+  },
+  "High Quality 2K — Rp1.500": {
+    kind: "Generate Foto",
+    quality: "High Quality",
+    resolution: "2K",
+    price: "Rp1.500",
+  },
+};
+
+const PHOTO_EDIT_OPTIONS = {
+  "Edit Standard 1K — Rp500": {
+    kind: "Edit Foto",
+    quality: "Standard",
+    resolution: "1K",
+    price: "Rp500",
+  },
+  "Edit Standard 2K — Rp500": {
+    kind: "Edit Foto",
+    quality: "Standard",
+    resolution: "2K",
+    price: "Rp500",
+  },
+  "Edit High Quality 1K — Rp1.000": {
+    kind: "Edit Foto",
+    quality: "High Quality",
+    resolution: "1K",
+    price: "Rp1.000",
+  },
+  "Edit High Quality 2K — Rp1.500": {
+    kind: "Edit Foto",
+    quality: "High Quality",
+    resolution: "2K",
+    price: "Rp1.500",
+  },
+};
+
+const VIDEO_GENERATE_OPTIONS = {
+  "480p • 5 detik — Rp5.000": {
+    kind: "Generate Video",
+    quality: "Standard",
+    resolution: "480p",
+    duration: "5 detik",
+    price: "Rp5.000",
+  },
+  "480p • 10 detik — Rp10.000": {
+    kind: "Generate Video",
+    quality: "Standard",
+    resolution: "480p",
+    duration: "10 detik",
+    price: "Rp10.000",
+  },
+  "480p • 15 detik — Rp15.000": {
+    kind: "Generate Video",
+    quality: "Standard",
+    resolution: "480p",
+    duration: "15 detik",
+    price: "Rp15.000",
+  },
+  "720p • 5 detik — Rp7.000": {
+    kind: "Generate Video",
+    quality: "Standard",
+    resolution: "720p",
+    duration: "5 detik",
+    price: "Rp7.000",
+  },
+  "720p • 10 detik — Rp15.000": {
+    kind: "Generate Video",
+    quality: "Standard",
+    resolution: "720p",
+    duration: "10 detik",
+    price: "Rp15.000",
+  },
+  "720p • 15 detik — Rp20.000": {
+    kind: "Generate Video",
+    quality: "Standard",
+    resolution: "720p",
+    duration: "15 detik",
+    price: "Rp20.000",
+  },
+  "480p HQ • 5 detik — Rp8.000": {
+    kind: "Generate Video",
+    quality: "High Quality",
+    resolution: "480p",
+    duration: "5 detik",
+    price: "Rp8.000",
+  },
+  "480p HQ • 10 detik — Rp16.000": {
+    kind: "Generate Video",
+    quality: "High Quality",
+    resolution: "480p",
+    duration: "10 detik",
+    price: "Rp16.000",
+  },
+  "480p HQ • 15 detik — Rp23.000": {
+    kind: "Generate Video",
+    quality: "High Quality",
+    resolution: "480p",
+    duration: "15 detik",
+    price: "Rp23.000",
+  },
+  "720p HQ • 5 detik — Rp14.000": {
+    kind: "Generate Video",
+    quality: "High Quality",
+    resolution: "720p",
+    duration: "5 detik",
+    price: "Rp14.000",
+  },
+  "720p HQ • 10 detik — Rp27.000": {
+    kind: "Generate Video",
+    quality: "High Quality",
+    resolution: "720p",
+    duration: "10 detik",
+    price: "Rp27.000",
+  },
+  "720p HQ • 15 detik — Rp40.000": {
+    kind: "Generate Video",
+    quality: "High Quality",
+    resolution: "720p",
+    duration: "15 detik",
+    price: "Rp40.000",
+  },
+  "1080p HQ • 5 detik — Rp24.000": {
+    kind: "Generate Video",
+    quality: "High Quality",
+    resolution: "1080p",
+    duration: "5 detik",
+    price: "Rp24.000",
+  },
+  "1080p HQ • 10 detik — Rp47.000": {
+    kind: "Generate Video",
+    quality: "High Quality",
+    resolution: "1080p",
+    duration: "10 detik",
+    price: "Rp47.000",
+  },
+  "1080p HQ • 15 detik — Rp70.000": {
+    kind: "Generate Video",
+    quality: "High Quality",
+    resolution: "1080p",
+    duration: "15 detik",
+    price: "Rp70.000",
+  },
+};
 
 export default {
   async fetch(request, env, ctx) {
@@ -169,9 +488,20 @@ async function handleUpdate(update, env) {
   const chatId = message.chat.id;
   const firstName = message.from?.first_name || "Pengguna";
   const text = (message.text || "").trim();
+  const caption = (message.caption || "").trim();
   const command = normalizeCommand(text);
+  const replyContext = parseReplyContext(message.reply_to_message?.text || "");
 
-  if (command.name === "start") {
+  if (replyContext) {
+    await handleReplyContext(env, chatId, message, replyContext);
+    return;
+  }
+
+  if (
+    command.name === "start" ||
+    command.name === "menu" ||
+    text === "⬅️ Menu Utama"
+  ) {
     await sendMessage(
       env,
       chatId,
@@ -182,51 +512,184 @@ async function handleUpdate(update, env) {
   }
 
   if (text === "💰 Harga" || command.name === "harga") {
+    await sendMessage(env, chatId, PRICE_LIST_TEXT, MAIN_MENU);
+    return;
+  }
+
+  if (
+    text === "🖼 Generate Foto" ||
+    text === "🖼 Generate Gambar" ||
+    command.name === "foto" ||
+    command.name === "gambar"
+  ) {
     await sendMessage(
       env,
       chatId,
-      `💰 DAFTAR HARGA\n\n🖼 Generate gambar AI\n• Standar: mulai Rp2.000\n• Kualitas tinggi: mulai Rp3.500\n\n🎬 Generate video AI\n• 480p: harga berdasarkan durasi\n• 720p: harga berdasarkan durasi\n\nHarga akhir dapat diperbarui setelah integrasi xAI aktif.`,
-      MAIN_MENU,
+      "🖼 GENERATE FOTO\n\nPilih jenis proses yang ingin Anda gunakan.",
+      FOTO_MENU,
     );
     return;
   }
 
-  if (text === "🖼 Generate Gambar" || command.name === "gambar") {
-    if (command.name === "gambar" && command.argument) {
-      await sendMessage(
-        env,
-        chatId,
-        `🖼 Prompt gambar diterima:\n\n${command.argument}\n\nFitur xAI belum disambungkan. Setelah API aktif, bot akan memproses prompt ini secara otomatis.`,
-        MAIN_MENU,
-      );
-      return;
-    }
-
+  if (text === "✨ Buat Foto Baru") {
     await sendMessage(
       env,
       chatId,
-      `🖼 GENERATE GAMBAR\n\nKirim prompt menggunakan format:\n\n/gambar seekor kucing memakai jas sedang berada di kantor\n\nIntegrasi xAI akan ditambahkan pada tahap berikutnya.`,
-      MAIN_MENU,
+      "🖼 BUAT FOTO BARU\n\nPilih kualitas dan resolusi hasil foto.",
+      FOTO_GENERATE_MENU,
     );
+    return;
+  }
+
+  if (text === "✏️ Edit Foto" || command.name === "editfoto") {
+    await sendMessage(
+      env,
+      chatId,
+      "✏️ EDIT FOTO\n\nPilih kualitas dan resolusi hasil edit foto.",
+      FOTO_EDIT_MENU,
+    );
+    return;
+  }
+
+  if (text === "⬅️ Kembali ke Foto") {
+    await sendMessage(
+      env,
+      chatId,
+      "🖼 GENERATE FOTO\n\nPilih jenis proses yang ingin Anda gunakan.",
+      FOTO_MENU,
+    );
+    return;
+  }
+
+  if (PHOTO_GENERATE_OPTIONS[text]) {
+    await requestGeneratePhotoPrompt(
+      env,
+      chatId,
+      PHOTO_GENERATE_OPTIONS[text],
+    );
+    return;
+  }
+
+  if (PHOTO_EDIT_OPTIONS[text]) {
+    await requestEditPhotoUpload(env, chatId, PHOTO_EDIT_OPTIONS[text]);
     return;
   }
 
   if (text === "🎬 Generate Video" || command.name === "video") {
-    if (command.name === "video" && command.argument) {
-      await sendMessage(
-        env,
-        chatId,
-        `🎬 Prompt video diterima:\n\n${command.argument}\n\nFitur xAI belum disambungkan. Nanti Anda dapat memilih resolusi 480p/720p dan durasi video.`,
-        MAIN_MENU,
-      );
-      return;
-    }
-
     await sendMessage(
       env,
       chatId,
-      `🎬 GENERATE VIDEO\n\nKirim prompt menggunakan format:\n\n/video pemandangan pantai saat matahari terbenam\n\nPilihan yang akan tersedia:\n• 480p atau 720p\n• Durasi sesuai batas model xAI`,
-      MAIN_MENU,
+      "🎬 GENERATE VIDEO\n\nPilih kualitas video yang ingin Anda buat.",
+      VIDEO_MENU,
+    );
+    return;
+  }
+
+  if (text === "🎞 Video Standard") {
+    await sendMessage(
+      env,
+      chatId,
+      "🎬 VIDEO STANDARD\n\nPilih resolusi video standard.",
+      VIDEO_STANDARD_MENU,
+    );
+    return;
+  }
+
+  if (text === "🚀 Video High Quality") {
+    await sendMessage(
+      env,
+      chatId,
+      "🚀 VIDEO HIGH QUALITY\n\nPilih resolusi video high quality.",
+      VIDEO_HQ_MENU,
+    );
+    return;
+  }
+
+  if (text === "⬅️ Kembali ke Video") {
+    await sendMessage(
+      env,
+      chatId,
+      "🎬 GENERATE VIDEO\n\nPilih kualitas video yang ingin Anda buat.",
+      VIDEO_MENU,
+    );
+    return;
+  }
+
+  if (text === "480p Standard") {
+    await sendMessage(
+      env,
+      chatId,
+      "🎬 VIDEO STANDARD 480p\n\nPilih durasi video.",
+      VIDEO_STANDARD_480_MENU,
+    );
+    return;
+  }
+
+  if (text === "720p Standard") {
+    await sendMessage(
+      env,
+      chatId,
+      "🎬 VIDEO STANDARD 720p\n\nPilih durasi video.",
+      VIDEO_STANDARD_720_MENU,
+    );
+    return;
+  }
+
+  if (text === "⬅️ Kembali ke Video Standard") {
+    await sendMessage(
+      env,
+      chatId,
+      "🎬 VIDEO STANDARD\n\nPilih resolusi video standard.",
+      VIDEO_STANDARD_MENU,
+    );
+    return;
+  }
+
+  if (text === "480p High Quality") {
+    await sendMessage(
+      env,
+      chatId,
+      "🚀 VIDEO HIGH QUALITY 480p\n\nPilih durasi video.",
+      VIDEO_HQ_480_MENU,
+    );
+    return;
+  }
+
+  if (text === "720p High Quality") {
+    await sendMessage(
+      env,
+      chatId,
+      "🚀 VIDEO HIGH QUALITY 720p\n\nPilih durasi video.",
+      VIDEO_HQ_720_MENU,
+    );
+    return;
+  }
+
+  if (text === "1080p High Quality") {
+    await sendMessage(
+      env,
+      chatId,
+      "🚀 VIDEO HIGH QUALITY 1080p\n\nPilih durasi video.",
+      VIDEO_HQ_1080_MENU,
+    );
+    return;
+  }
+
+  if (text === "⬅️ Kembali ke Video High Quality") {
+    await sendMessage(
+      env,
+      chatId,
+      "🚀 VIDEO HIGH QUALITY\n\nPilih resolusi video high quality.",
+      VIDEO_HQ_MENU,
+    );
+    return;
+  }
+
+  if (VIDEO_GENERATE_OPTIONS[text]) {
+    await requestGenerateVideoPrompt(
+      env,
+      chatId,
+      VIDEO_GENERATE_OPTIONS[text],
     );
     return;
   }
@@ -235,19 +698,14 @@ async function handleUpdate(update, env) {
     await sendMessage(
       env,
       chatId,
-      `➕ TOP UP SALDO\n\nPembayaran QRIS sedang menunggu aktivasi DOKU Merchant.\n\nSetelah aktif, bot akan membuat QRIS dan menambah saldo otomatis setelah pembayaran berhasil.`,
+      "➕ TOP UP SALDO\n\nPembayaran QRIS sedang menunggu aktivasi DOKU Merchant.\n\nSetelah aktif, bot akan membuat QRIS dan menambah saldo otomatis setelah pembayaran berhasil.",
       MAIN_MENU,
     );
     return;
   }
 
   if (text === "👛 Saldo" || command.name === "saldo") {
-    await sendMessage(
-      env,
-      chatId,
-      "👛 Saldo Anda saat ini: Rp0",
-      MAIN_MENU,
-    );
+    await sendMessage(env, chatId, "👛 Saldo Anda saat ini: Rp0", MAIN_MENU);
     return;
   }
 
@@ -265,12 +723,120 @@ async function handleUpdate(update, env) {
     return;
   }
 
+  if (!text && caption) {
+    await sendMessage(
+      env,
+      chatId,
+      "Pesan Anda diterima, tetapi formatnya belum sesuai menu yang tersedia. Silakan pilih menu di bawah.",
+      MAIN_MENU,
+    );
+    return;
+  }
+
   await sendMessage(
     env,
     chatId,
     "Perintah belum dikenali. Silakan pilih menu di bawah.",
     MAIN_MENU,
   );
+}
+
+async function handleReplyContext(env, chatId, message, context) {
+  if (context.kind === "Edit Foto") {
+    if (!message.photo?.length) {
+      await sendMessage(
+        env,
+        chatId,
+        "Silakan balas pesan tadi dengan foto yang ingin diedit, lalu tulis instruksi edit pada caption.",
+        FOTO_EDIT_MENU,
+      );
+      return;
+    }
+
+    if (!(message.caption || "").trim()) {
+      await sendMessage(
+        env,
+        chatId,
+        "Foto sudah diterima, tetapi instruksi edit belum ada. Kirim ulang foto dan isi caption dengan instruksi edit.",
+        FOTO_EDIT_MENU,
+      );
+      return;
+    }
+
+    await sendMessage(
+      env,
+      chatId,
+      `✅ Permintaan edit foto berhasil dicatat.\n\nJenis: ${context.kind}\nKualitas: ${context.quality}\nResolusi: ${context.resolution}\nHarga: ${context.price}\nInstruksi: ${message.caption.trim()}\n\nSaat ini alur menu sudah aktif. Integrasi otomatis ke xAI akan disambungkan pada tahap berikutnya.`,
+      MAIN_MENU,
+    );
+    return;
+  }
+
+  const prompt = (message.text || "").trim();
+  if (!prompt) {
+    await sendMessage(
+      env,
+      chatId,
+      "Silakan balas pesan tadi dengan deskripsi atau prompt teks.",
+      MAIN_MENU,
+    );
+    return;
+  }
+
+  const durationText = context.duration ? `Durasi: ${context.duration}\n` : "";
+
+  await sendMessage(
+    env,
+    chatId,
+    `✅ Permintaan berhasil dicatat.\n\nJenis: ${context.kind}\nKualitas: ${context.quality}\nResolusi: ${context.resolution}\n${durationText}Harga: ${context.price}\nPrompt: ${prompt}\n\nSaat ini alur menu sudah aktif. Integrasi otomatis ke xAI akan disambungkan pada tahap berikutnya.`,
+    MAIN_MENU,
+  );
+}
+
+async function requestGeneratePhotoPrompt(env, chatId, option) {
+  const text = `🖼 GENERATE FOTO\nJenis: ${option.kind}\nKualitas: ${option.quality}\nResolusi: ${option.resolution}\nHarga: ${option.price}\n\nSilakan balas pesan ini dengan deskripsi foto yang ingin dibuat.`;
+
+  await sendMessage(env, chatId, text, forceReply("Tulis prompt foto..."));
+}
+
+async function requestEditPhotoUpload(env, chatId, option) {
+  const text = `✏️ EDIT FOTO\nJenis: ${option.kind}\nKualitas: ${option.quality}\nResolusi: ${option.resolution}\nHarga: ${option.price}\n\nSilakan balas pesan ini dengan foto yang ingin diedit, lalu tulis instruksi edit pada caption.`;
+
+  await sendMessage(env, chatId, text, forceReply("Kirim foto + caption edit..."));
+}
+
+async function requestGenerateVideoPrompt(env, chatId, option) {
+  const text = `🎬 GENERATE VIDEO\nJenis: ${option.kind}\nKualitas: ${option.quality}\nResolusi: ${option.resolution}\nDurasi: ${option.duration}\nHarga: ${option.price}\n\nSilakan balas pesan ini dengan deskripsi video yang ingin dibuat.`;
+
+  await sendMessage(env, chatId, text, forceReply("Tulis prompt video..."));
+}
+
+function parseReplyContext(text) {
+  if (!text) return null;
+
+  const kind = extractField(text, "Jenis");
+  if (!kind) return null;
+
+  if (!["Generate Foto", "Generate Video", "Edit Foto"].includes(kind)) {
+    return null;
+  }
+
+  return {
+    kind,
+    quality: extractField(text, "Kualitas"),
+    resolution: extractField(text, "Resolusi"),
+    duration: extractField(text, "Durasi"),
+    price: extractField(text, "Harga"),
+  };
+}
+
+function extractField(text, label) {
+  const match = text.match(new RegExp(`^${escapeRegExp(label)}:\\s*(.+)$`, "m"));
+  return match ? match[1].trim() : "";
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
 }
 
 function normalizeCommand(text) {
@@ -284,6 +850,23 @@ function normalizeCommand(text) {
   return {
     name,
     argument: rest.join(" ").trim(),
+  };
+}
+
+function keyboard(rows, placeholder = "Pilih...") {
+  return {
+    keyboard: rows.map((row) => row.map((text) => ({ text }))),
+    resize_keyboard: true,
+    is_persistent: true,
+    input_field_placeholder: placeholder,
+  };
+}
+
+function forceReply(placeholder = "Balas pesan ini...") {
+  return {
+    force_reply: true,
+    selective: true,
+    input_field_placeholder: placeholder,
   };
 }
 
