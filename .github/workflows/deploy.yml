@@ -1,6 +1,5 @@
 name: Deploy Cloudflare Worker
 
-# Manual deployment trigger: 2026-07-31T00:12+07:00
 on:
   workflow_dispatch:
   push:
@@ -60,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           if ! D1_LIST="$(npx wrangler d1 list --json)"; then
-            echo "::error::Tidak dapat membaca daftar D1. Pastikan API Token memiliki izin Account > D1 > Read serta Workers Scripts > Edit."
+            echo "::error::Tidak dapat membaca daftar D1. Pastikan API Token memiliki izin Account > D1 > Edit serta Workers Scripts > Edit."
             exit 1
           fi
           export D1_LIST
@@ -89,6 +88,7 @@ jobs:
               binding: "DB",
               database_name: "bikin-foto-db",
               database_id: databaseId,
+              migrations_dir: "migrations",
             },
           ];
 
@@ -99,6 +99,12 @@ jobs:
 
           console.log(`D1 ditemukan: ${database.name} (${databaseId})`);
           NODE
+
+      - name: Apply D1 migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 migrations apply bikin-foto-db --remote --config wrangler.ci.jsonc
 
       - name: Deploy Worker
         shell: bash
