@@ -1,5 +1,6 @@
 name: Deploy Cloudflare Worker
 
+# Manual deployment trigger: 2026-07-31T00:12+07:00
 on:
   workflow_dispatch:
   push:
