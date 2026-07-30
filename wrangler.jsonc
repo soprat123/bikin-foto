@@ -3,5 +3,12 @@
   "name": "bikin-foto",
   "main": "src/entry.js",
   "compatibility_date": "2026-07-30",
-  "workers_dev": true
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bikin-foto-db",
+      "database_id": "43831eca-22e7-4eca-b6c3-d21f3efadaed"
+    }
+  ]
 }
