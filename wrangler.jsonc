@@ -8,7 +8,8 @@
     {
       "binding": "DB",
       "database_name": "bikin-foto-db",
-      "database_id": "43831eca-22e7-4eca-b6c3-d21f3efadaed"
+      "database_id": "43831eca-22e7-4eca-b6c3-d21f3efadaed",
+      "migrations_dir": "migrations"
     }
   ]
 }
