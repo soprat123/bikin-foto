@@ -185,10 +185,12 @@ export default {
         return new Response("OK");
       }
 
-      if (detectNudifyRequest(orderPrompt)) {
+      const moderationCategory = detectBlockedRequest(orderPrompt);
+      if (moderationCategory) {
         console.warn(
           JSON.stringify({
-            message: "Permintaan nudify ditolak",
+            message: "Permintaan melanggar filter konten",
+            category: moderationCategory,
             telegram_id: telegramId,
             kind: replyContext.kind,
           }),
@@ -196,7 +198,7 @@ export default {
         await sendMessage(
           env,
           chatId,
-          "🚫 PERMINTAAN DITOLAK\n\nBot tidak dapat memproses permintaan nudify, menelanjangi orang, menghapus pakaian untuk menampilkan bagian intim, atau membuat pakaian transparan.\n\nSaldo Anda tidak dipotong. Foto dan video orang nyata tetap diperbolehkan selama tidak mengandung permintaan tersebut.",
+          "🚫 PERMINTAAN DITOLAK\n\nPermintaan mengandung kata atau tema yang dilarang: konten seksual/pakaian sensitif, anak atau remaja, kekerasan berat, kebencian/terorisme, narkoba, atau dokumen identitas/keuangan.\n\nSaldo Anda tidak dipotong. Silakan ubah deskripsi menjadi konten yang aman.",
           MAIN_MENU,
         );
         return new Response("OK");
@@ -651,52 +653,62 @@ function extractField(text, label) {
   return match ? match[1].trim() : "";
 }
 
-function detectNudifyRequest(prompt) {
+function detectBlockedRequest(prompt) {
   const text = normalizeModerationText(prompt);
-  if (!text) return false;
+  if (!text) return "";
 
-  const directNudityPatterns = [
-    /\bnudify\b/,
-    /\bdeep\s*nude\b/,
-    /\bdeepfake\b.{0,30}\b(?:nude|naked|telanjang|bugil)\b/,
-    /\b(?:naked|topless|bottomless|telanjang|bugil)\b/,
-    /\bnude\b(?!\s+(?:color|colour|warna|lipstick|makeup|palette|tone|beige)\b)/,
-    /\btanpa\s+(?:busana|pakaian|baju)\b/,
-    /\btidak\s+(?:memakai|menggunakan|mengenakan)\s+(?:busana|pakaian|baju)\b/,
+  const blockedCategories = [
+    {
+      category: "sexual_content",
+      patterns: [
+        /\b(?:bikini|lingerie|underwear|bra|panties|topless|telanjang|bugil|nude|naked|sensual|erotis|erotic|seksi|seductive|nsfw|hentai|nudify)\b/,
+        /\b(?:pakaian dalam|celana dalam|tanpa pakaian|tanpa baju|tanpa busana|see through|tembus pandang|pakaian transparan|baju transparan|pakaian basah|baju basah|pose menggoda)\b/,
+        /\b(?:transparan|deep nude)\b/,
+        /\bdeepfake\b.{0,30}\b(?:nude|naked|telanjang|bugil)\b/,
+        /\b(?:tidak memakai|tidak menggunakan|tidak mengenakan)\s+(?:busana|pakaian|baju)\b/,
+        /\b(?:remove|take off|strip|erase|delete|hapus|hilangkan|lepas|buka)\b.{0,40}\b(?:clothes|clothing|dress|shirt|skirt|pants|bra|underwear|panties|pakaian|baju|gaun|rok|celana|pakaian dalam)\b/,
+        /\b(?:reveal|show|expose|perlihatkan|tampilkan|kelihatan|terlihat)\b.{0,40}\b(?:breast|breasts|nipple|nipples|genital|genitals|penis|vagina|buttocks|payudara|puting|alat kelamin|kemaluan|bokong)\b/,
+      ],
+    },
+    {
+      category: "minor_content",
+      patterns: [
+        /\b(?:anak|anak anak|remaja|bocah|smp|sma|seragam sekolah|loli|child|children|teen|teenager)\b/,
+      ],
+    },
+    {
+      category: "graphic_violence",
+      patterns: [
+        /\b(?:darah|berdarah|mayat|gore|luka parah|mutilasi|tembak|senjata|pistol)\b/,
+      ],
+    },
+    {
+      category: "hate_or_terrorism",
+      patterns: [
+        /\b(?:simbol kebencian|nazi|isis|ekstremis|teroris)\b/,
+      ],
+    },
+    {
+      category: "drugs",
+      patterns: [
+        /\b(?:narkoba|sabu|ganja|kokain)\b/,
+      ],
+    },
+    {
+      category: "identity_or_financial_document",
+      patterns: [
+        /\b(?:ktp|paspor|sim|kartu kredit)\b/,
+      ],
+    },
   ];
 
-  if (directNudityPatterns.some((pattern) => pattern.test(text))) {
-    return true;
+  for (const group of blockedCategories) {
+    if (group.patterns.some((pattern) => pattern.test(text))) {
+      return group.category;
+    }
   }
 
-  const transparentClothing =
-    /\b(?:transparent|see through|tembus pandang|transparan)\b/.test(text) &&
-    /\b(?:clothes|clothing|dress|shirt|skirt|pants|bra|underwear|pakaian|baju|gaun|rok|celana|pakaian dalam)\b/.test(
-      text,
-    );
-  if (transparentClothing) return true;
-
-  const revealsIntimateParts =
-    /\b(?:reveal|show|expose|perlihatkan|tampilkan|kelihatan|terlihat)\b/.test(
-      text,
-    ) &&
-    /\b(?:breast|breasts|nipple|nipples|genital|genitals|penis|vagina|buttocks|payudara|puting|alat kelamin|kemaluan|bokong)\b/.test(
-      text,
-    );
-  if (revealsIntimateParts) return true;
-
-  const removesClothing =
-    /\b(?:remove|take off|strip|erase|delete|hapus|hilangkan|lepas|buka)\b.{0,40}\b(?:clothes|clothing|dress|shirt|skirt|pants|bra|underwear|panties|pakaian|baju|gaun|rok|celana|pakaian dalam)\b/.test(
-      text,
-    );
-  if (!removesClothing) return false;
-
-  const replacesClothing =
-    /\b(?:replace|change into|wear|dress in|ganti|ubah menjadi|kenakan|pakaikan)\b.{0,60}\b(?:clothes|clothing|dress|shirt|skirt|pants|suit|jacket|pakaian|baju|gaun|rok|celana|jas|jaket|kostum)\b/.test(
-      text,
-    );
-
-  return !replacesClothing;
+  return "";
 }
 
 function normalizeModerationText(value) {
