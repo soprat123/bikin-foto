@@ -195,7 +195,20 @@ export async function createOrderAndCharge(env, orderInput) {
         `INSERT OR IGNORE INTO orders (
           telegram_update_id, telegram_id, kind, quality, resolution,
           duration, price, prompt, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'checking_balance')`,
+        )
+        SELECT ?, ?, ?, ?, ?, ?, ?, ?, 'checking_balance'
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM orders
+          WHERE telegram_id = ?
+            AND status IN ('pending', 'processing')
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM orders
+          WHERE telegram_id = ?
+            AND created_at >= datetime('now', '-30 seconds')
+        )`,
       )
       .bind(
         updateId,
@@ -206,6 +219,8 @@ export async function createOrderAndCharge(env, orderInput) {
         orderInput.duration || null,
         price,
         orderInput.prompt || null,
+        telegramId,
+        telegramId,
       ),
     db
       .prepare(
@@ -242,7 +257,7 @@ export async function createOrderAndCharge(env, orderInput) {
       .bind(referenceId, updateId),
   ]);
 
-  const duplicate = Number(results[0]?.meta?.changes || 0) === 0;
+  const inserted = Number(results[0]?.meta?.changes || 0) > 0;
   const order = await db
     .prepare(
       `SELECT o.id, o.telegram_update_id, o.telegram_id, o.kind,
@@ -256,8 +271,61 @@ export async function createOrderAndCharge(env, orderInput) {
     .bind(updateId)
     .first();
 
+  if (!inserted && !order) {
+    const activeOrder = await db
+      .prepare(
+        `SELECT id, status
+         FROM orders
+         WHERE telegram_id = ?
+           AND status IN ('pending', 'processing')
+         ORDER BY id DESC
+         LIMIT 1`,
+      )
+      .bind(telegramId)
+      .first();
+
+    if (activeOrder) {
+      return {
+        duplicate: false,
+        blocked: true,
+        blockReason: "active",
+        activeOrderId: activeOrder.id,
+        charged: false,
+        order: null,
+      };
+    }
+
+    const latestOrder = await db
+      .prepare(
+        `SELECT MAX(
+           0,
+           30 - (unixepoch('now') - unixepoch(created_at))
+         ) AS cooldown_remaining
+         FROM orders
+         WHERE telegram_id = ?
+         ORDER BY id DESC
+         LIMIT 1`,
+      )
+      .bind(telegramId)
+      .first();
+
+    return {
+      duplicate: false,
+      blocked: true,
+      blockReason: "cooldown",
+      cooldownRemaining: Math.max(
+        1,
+        Number(latestOrder?.cooldown_remaining || 1),
+      ),
+      charged: false,
+      order: null,
+    };
+  }
+
   return {
-    duplicate,
+    duplicate: !inserted && Boolean(order),
+    blocked: false,
+    blockReason: null,
     charged: order?.status === "pending",
     order,
   };
