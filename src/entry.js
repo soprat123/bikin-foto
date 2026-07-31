@@ -90,7 +90,7 @@ export default {
       await sendMessage(
         env,
         chatId,
-        "🆘 BANTUAN\n\nHubungi admin pemilik bot @Abdulgoib jika ada kendala atau error pada bot",
+        "🆘 BANTUAN\n\nHubungi admin pemilik bot @Abdulgoib jika ingin top up manual dan ada kendala atau error pada bot",
         MAIN_MENU,
       );
       return new Response("OK");
