@@ -1,3 +1,4 @@
+import { pollPendingVideos, processPaidOrder } from "./xai.js";
 import worker from "./index.js";
 import {
   DatabaseNotConfiguredError,
@@ -191,18 +192,20 @@ export default {
         await sendMessage(
           env,
           chatId,
-          `✅ PESANAN BERHASIL DICATAT\n\nNomor pesanan: #${
-            result.order.id
-          }\nJenis: ${result.order.kind}\nKualitas: ${
-            result.order.quality || "-"
-          }\nResolusi: ${result.order.resolution || "-"}\n${
-            result.order.duration
-              ? `Durasi: ${result.order.duration}\n`
-              : ""
-          }Biaya: ${formatRupiah(result.order.price)}\nSisa saldo: ${formatRupiah(
+          `✅ PESANAN DITERIMA\n\nNomor pesanan: #${result.order.id}\nBiaya: ${formatRupiah(
+            result.order.price,
+          )}\nSisa saldo: ${formatRupiah(
             result.order.balance,
-          )}\nStatus: Pending\n\nIntegrasi xAI belum diaktifkan. Pesanan dan pemotongan saldo sudah tersimpan di database.`,
+          )}\n\nPermintaan sedang dikirim ke xAI. Hasil akan dikirim otomatis ke chat ini.`,
           MAIN_MENU,
+        );
+
+        ctx.waitUntil(
+          processPaidOrder(env, {
+            order: result.order,
+            message,
+            chatId,
+          }),
         );
       } catch (error) {
         console.error("Gagal memproses pesanan bersaldo:", error);
@@ -218,6 +221,10 @@ export default {
     }
 
     return worker.fetch(request, env, ctx);
+  },
+
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(pollPendingVideos(env));
   },
 };
 
