@@ -710,6 +710,8 @@ function normalizeModerationText(value) {
     .replace(/[0]/g, "o")
     .replace(/[5$]/g, "s")
     .replace(/[7]/g, "t")
+    .replace(/\b(baju|pakaian|gaun|rok|celana)(?:nya)\b/g, "$1")
+    .replace(/\b(lepaskan|menanggalkan|membuka)\b/g, "lepas")
     .replace(/[_.,/\\-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
