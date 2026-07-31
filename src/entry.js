@@ -185,6 +185,23 @@ export default {
         return new Response("OK");
       }
 
+      if (detectNudifyRequest(orderPrompt)) {
+        console.warn(
+          JSON.stringify({
+            message: "Permintaan nudify ditolak",
+            telegram_id: telegramId,
+            kind: replyContext.kind,
+          }),
+        );
+        await sendMessage(
+          env,
+          chatId,
+          "🚫 PERMINTAAN DITOLAK\n\nBot tidak dapat memproses permintaan nudify, menelanjangi orang, menghapus pakaian untuk menampilkan bagian intim, atau membuat pakaian transparan.\n\nSaldo Anda tidak dipotong. Foto dan video orang nyata tetap diperbolehkan selama tidak mengandung permintaan tersebut.",
+          MAIN_MENU,
+        );
+        return new Response("OK");
+      }
+
       const price = parseRupiah(replyContext.price);
       if (!price) {
         await sendMessage(
@@ -632,6 +649,70 @@ function extractField(text, label) {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = text.match(new RegExp(`^${escaped}:\\s*(.+)$`, "m"));
   return match ? match[1].trim() : "";
+}
+
+function detectNudifyRequest(prompt) {
+  const text = normalizeModerationText(prompt);
+  if (!text) return false;
+
+  const directNudityPatterns = [
+    /\bnudify\b/,
+    /\bdeep\s*nude\b/,
+    /\bdeepfake\b.{0,30}\b(?:nude|naked|telanjang|bugil)\b/,
+    /\b(?:naked|topless|bottomless|telanjang|bugil)\b/,
+    /\bnude\b(?!\s+(?:color|colour|warna|lipstick|makeup|palette|tone|beige)\b)/,
+    /\btanpa\s+(?:busana|pakaian|baju)\b/,
+    /\btidak\s+(?:memakai|menggunakan|mengenakan)\s+(?:busana|pakaian|baju)\b/,
+  ];
+
+  if (directNudityPatterns.some((pattern) => pattern.test(text))) {
+    return true;
+  }
+
+  const transparentClothing =
+    /\b(?:transparent|see through|tembus pandang|transparan)\b/.test(text) &&
+    /\b(?:clothes|clothing|dress|shirt|skirt|pants|bra|underwear|pakaian|baju|gaun|rok|celana|pakaian dalam)\b/.test(
+      text,
+    );
+  if (transparentClothing) return true;
+
+  const revealsIntimateParts =
+    /\b(?:reveal|show|expose|perlihatkan|tampilkan|kelihatan|terlihat)\b/.test(
+      text,
+    ) &&
+    /\b(?:breast|breasts|nipple|nipples|genital|genitals|penis|vagina|buttocks|payudara|puting|alat kelamin|kemaluan|bokong)\b/.test(
+      text,
+    );
+  if (revealsIntimateParts) return true;
+
+  const removesClothing =
+    /\b(?:remove|take off|strip|erase|delete|hapus|hilangkan|lepas|buka)\b.{0,40}\b(?:clothes|clothing|dress|shirt|skirt|pants|bra|underwear|panties|pakaian|baju|gaun|rok|celana|pakaian dalam)\b/.test(
+      text,
+    );
+  if (!removesClothing) return false;
+
+  const replacesClothing =
+    /\b(?:replace|change into|wear|dress in|ganti|ubah menjadi|kenakan|pakaikan)\b.{0,60}\b(?:clothes|clothing|dress|shirt|skirt|pants|suit|jacket|pakaian|baju|gaun|rok|celana|jas|jaket|kostum)\b/.test(
+      text,
+    );
+
+  return !replacesClothing;
+}
+
+function normalizeModerationText(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[@4]/g, "a")
+    .replace(/[3]/g, "e")
+    .replace(/[1!|]/g, "i")
+    .replace(/[0]/g, "o")
+    .replace(/[5$]/g, "s")
+    .replace(/[7]/g, "t")
+    .replace(/[_.,/\\-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function parseRupiah(value) {
