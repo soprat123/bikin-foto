@@ -28,6 +28,7 @@ const MAIN_MENU = {
       { text: "👛 Saldo" },
       { text: "➕ Top Up" },
     ],
+    [{ text: "📜 Riwayat Transaksi" }],
     [{ text: "🆘 Bantuan" }],
   ],
   resize_keyboard: true,
@@ -118,6 +119,42 @@ export default {
           `👛 SALDO ANDA\n\nSaldo tersedia: ${formatRupiah(
             registeredUser.balance,
           )}\nID Telegram: ${telegramId}`,
+          MAIN_MENU,
+        );
+      }
+      return new Response("OK");
+    }
+
+    if (
+      text === "📜 Riwayat Transaksi" ||
+      command.name === "riwayat"
+    ) {
+      if (databaseError || !registeredUser) {
+        await sendDatabaseUnavailable(env, chatId, databaseError);
+      } else {
+        const transactions = await getTransactions(env, telegramId, 15);
+        const body = transactions.length
+          ? transactions
+              .map((item, index) => {
+                const isCredit =
+                  item.type === "credit" || item.type === "refund";
+                const sign = isCredit ? "+" : "-";
+                const label = transactionTypeLabel(item.type);
+                return `${index + 1}. ${label}\n${sign}${formatRupiah(
+                  item.amount,
+                )} • Saldo: ${formatRupiah(
+                  item.balance_after,
+                )}\n${item.description || label}\n${formatTransactionDate(
+                  item.created_at,
+                )}`;
+              })
+              .join("\n\n")
+          : "Belum ada transaksi.";
+
+        await sendMessage(
+          env,
+          chatId,
+          `📜 RIWAYAT TRANSAKSI\n\n${body}\n\nMenampilkan maksimal 15 transaksi terbaru.`,
           MAIN_MENU,
         );
       }
@@ -607,6 +644,37 @@ function parseAdminAmount(value) {
 
 function formatRupiah(value) {
   return `Rp${Number(value || 0).toLocaleString("id-ID")}`;
+}
+
+function transactionTypeLabel(type) {
+  const labels = {
+    credit: "✅ Saldo masuk",
+    debit: "🛒 Pembayaran layanan",
+    refund: "↩️ Refund",
+    adjustment: "⚙️ Penyesuaian saldo",
+  };
+
+  return labels[type] || "🧾 Transaksi";
+}
+
+function formatTransactionDate(value) {
+  if (!value) return "-";
+
+  const normalized = String(value).includes("T")
+    ? String(value)
+    : `${String(value).replace(" ", "T")}Z`;
+  const date = new Date(normalized);
+
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleString("id-ID", {
+    timeZone: "Asia/Jakarta",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function displayUser(user) {
