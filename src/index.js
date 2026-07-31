@@ -712,14 +712,10 @@ async function handleUpdate(update, env) {
   }
 
   if (text === "🆘 Bantuan" || command.name === "bantuan") {
-    const support = env.SUPPORT_USERNAME
-      ? `Hubungi @${env.SUPPORT_USERNAME.replace(/^@/, "")}`
-      : "Hubungi admin pemilik bot.";
-
     await sendMessage(
       env,
       chatId,
-      `🆘 BANTUAN\n\n${support}\n\nJangan pernah memberikan kode OTP, password, token bot, atau API key kepada siapa pun.`,
+      "🆘 BANTUAN\n\nHubungi admin pemilik bot @Abdulgoib jika ingin top up manual dan ada kendala atau error pada bot",
       MAIN_MENU,
     );
     return;
