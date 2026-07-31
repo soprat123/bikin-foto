@@ -198,7 +198,7 @@ export default {
         await sendMessage(
           env,
           chatId,
-          "🚫 PERMINTAAN DITOLAK\n\nPermintaan mengandung kata atau tema yang dilarang: konten seksual/pakaian sensitif, anak atau remaja, kekerasan berat, kebencian/terorisme, narkoba, atau dokumen identitas/keuangan.\n\nSaldo Anda tidak dipotong. Silakan ubah deskripsi menjadi konten yang aman.",
+          "🚫 PERMINTAAN DITOLAK\n\nPermintaan mengandung kata atau tema yang dilarang oleh filter keamanan bot. Ini mencakup konten seksual, anak/remaja, kekerasan atau menyakiti diri, kebencian/terorisme, narkoba, perjudian, pemalsuan/deepfake, politik/agama sensitif, serta dokumen identitas atau medis sensitif.\n\nSaldo Anda tidak dipotong. Silakan ubah deskripsi menjadi konten yang aman.",
           MAIN_MENU,
         );
         return new Response("OK");
@@ -697,7 +697,43 @@ function detectBlockedRequest(prompt) {
     {
       category: "identity_or_financial_document",
       patterns: [
-        /\b(?:ktp|paspor|sim|kartu kredit)\b/,
+        /\b(?:ktp|paspor|sim|kartu kredit|tanda tangan|stempel|sertifikat|palsu)\b/,
+      ],
+    },
+    {
+      category: "self_harm_or_eating_disorder",
+      patterns: [
+        /\b(?:bunuh diri|gantung diri|sayat|self harm|anoreksia)\b/,
+      ],
+    },
+    {
+      category: "torture_or_execution",
+      patterns: [
+        /\b(?:siksa|penyiksaan|sembelih|eksekusi|hewan disiksa)\b/,
+      ],
+    },
+    {
+      category: "gambling_or_alcohol",
+      patterns: [
+        /\b(?:judi|slot|kasino|togel|miras)\b/,
+      ],
+    },
+    {
+      category: "religious_or_political_sensitive",
+      patterns: [
+        /\b(?:nabi|kitab suci|bendera terlarang|kampanye|capres|presiden)\b/,
+      ],
+    },
+    {
+      category: "medical_sensitive",
+      patterns: [
+        /\b(?:operasi|organ dalam|penyakit|bayi cacat)\b/,
+      ],
+    },
+    {
+      category: "identity_manipulation",
+      patterns: [
+        /\bdeepfake\b/,
       ],
     },
   ];
