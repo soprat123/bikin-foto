@@ -212,6 +212,23 @@ export default {
           return new Response("OK");
         }
 
+        if (result.blocked) {
+          const notice =
+            result.blockReason === "active"
+              ? `⏳ PESANAN MASIH DIPROSES\n\nTunggu pesanan sebelumnya selesai terlebih dahulu.${
+                  result.activeOrderId
+                    ? `\nNomor pesanan aktif: #${result.activeOrderId}`
+                    : ""
+                }`
+              : `⏱ TUNGGU SEBENTAR\n\nJeda antar pesanan adalah 30 detik. Silakan tunggu sekitar ${Math.max(
+                  1,
+                  Number(result.cooldownRemaining || 1),
+                )} detik sebelum membuat pesanan berikutnya.`;
+
+          await sendMessage(env, chatId, notice, MAIN_MENU);
+          return new Response("OK");
+        }
+
         if (!result.charged) {
           await sendMessage(
             env,
