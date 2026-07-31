@@ -3,6 +3,7 @@ const MAIN_MENU = keyboard(
     ["🖼 Generate Foto", "🎬 Generate Video"],
     ["💰 Harga", "✏️ Edit Foto"],
     ["👛 Saldo", "➕ Top Up"],
+    ["📜 Riwayat Transaksi"],
     ["🆘 Bantuan"],
   ],
   "Pilih layanan...",
@@ -114,6 +115,7 @@ const BOT_COMMANDS = [
   { command: "harga", description: "Lihat daftar harga" },
   { command: "topup", description: "Isi saldo" },
   { command: "saldo", description: "Periksa saldo" },
+  { command: "riwayat", description: "Lihat riwayat transaksi" },
   { command: "bantuan", description: "Hubungi bantuan" },
 ];
 
