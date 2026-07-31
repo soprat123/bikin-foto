@@ -301,10 +301,13 @@ export async function createOrderAndCharge(env, orderInput) {
            0,
            30 - (unixepoch('now') - unixepoch(created_at))
          ) AS cooldown_remaining
-         FROM orders
-         WHERE telegram_id = ?
-         ORDER BY id DESC
-         LIMIT 1`,
+         FROM (
+           SELECT created_at
+           FROM orders
+           WHERE telegram_id = ?
+           ORDER BY id DESC
+           LIMIT 1
+         )`,
       )
       .bind(telegramId)
       .first();
