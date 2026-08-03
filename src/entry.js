@@ -215,9 +215,12 @@ export default {
         const errorCode = String(error.message || "unknown_error");
         const upstreamMessage = String(error.upstreamMessage || "").trim();
         const upstream = upstreamMessage.toLowerCase();
-        if (errorCode === "payment_service_not_configured") {
+        if (errorCode === "missing_qris_payment_url") {
           userMessage =
-            "⚠️ QRIS_PAYMENT_URL atau QRIS_INTERNAL_SECRET belum terbaca di Worker bikin-foto.";
+            "⚠️ QRIS_PAYMENT_URL belum terbaca di deployment aktif Worker bikin-foto.";
+        } else if (errorCode === "missing_qris_internal_secret") {
+          userMessage =
+            "⚠️ QRIS_INTERNAL_SECRET belum terbaca di deployment aktif Worker bikin-foto.";
         } else if (errorCode === "invalid_payment_service_url") {
           userMessage =
             "⚠️ QRIS_PAYMENT_URL tidak valid atau tidak menggunakan HTTPS.";
