@@ -182,6 +182,9 @@ export default {
           const order = await requestGatePayDeposit(env, {
             amount,
             reference: deposit.reference,
+            username: message.from.username || "",
+            firstName: message.from.first_name || "",
+            telegramId,
           });
           deposit = await attachGatePayOrder(env, deposit.reference, order);
         }
