@@ -212,15 +212,30 @@ export default {
         );
         let userMessage =
           "⚠️ Gagal membuat pembayaran QRIS. Silakan coba kembali beberapa saat lagi atau hubungi @Abdulgoib.";
-        const upstream = String(error.upstreamMessage || "").toLowerCase();
-        if (error.upstreamStatus === 401 || error.upstreamStatus === 403) {
+        const errorCode = String(error.message || "unknown_error");
+        const upstreamMessage = String(error.upstreamMessage || "").trim();
+        const upstream = upstreamMessage.toLowerCase();
+        if (errorCode === "payment_service_not_configured") {
           userMessage =
-            "⚠️ GATEPAY_API_KEY ditolak. Admin perlu memeriksa kembali API key GatePay di Worker QRIS.";
-        } else if (upstream.includes("qris") || upstream.includes("merchant")) {
-          userMessage = `⚠️ GatePay menolak order: ${error.upstreamMessage}`;
-        } else if (error.message === "unauthorized") {
+            "⚠️ QRIS_PAYMENT_URL atau QRIS_INTERNAL_SECRET belum terbaca di Worker bikin-foto.";
+        } else if (errorCode === "invalid_payment_service_url") {
+          userMessage =
+            "⚠️ QRIS_PAYMENT_URL tidak valid atau tidak menggunakan HTTPS.";
+        } else if (errorCode === "unauthorized") {
           userMessage =
             "⚠️ QRIS_INTERNAL_SECRET pada kedua Worker tidak sama. Admin perlu menyamakan nilainya lalu deploy ulang.";
+        } else if (errorCode === "server_not_configured") {
+          userMessage =
+            "⚠️ GATEPAY_API_KEY atau QRIS_INTERNAL_SECRET belum terbaca di Worker QRIS.";
+        } else if (error.upstreamStatus === 401 || error.upstreamStatus === 403) {
+          userMessage =
+            "⚠️ GATEPAY_API_KEY ditolak. Admin perlu memeriksa kembali API key GatePay di Worker QRIS.";
+        } else if (upstreamMessage) {
+          userMessage = `⚠️ GatePay menolak order (HTTP ${error.upstreamStatus || "-"}): ${upstreamMessage}`;
+        } else if (error.upstreamStatus) {
+          userMessage = `⚠️ GatePay gagal tanpa rincian (HTTP ${error.upstreamStatus}). Periksa QRIS merchant dan log Worker QRIS.`;
+        } else {
+          userMessage = `⚠️ Layanan QRIS gagal: ${errorCode.slice(0, 160)}`;
         }
         await sendMessage(
           env,
