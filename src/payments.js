@@ -41,9 +41,8 @@ export async function readInternalJson(request) {
 }
 
 export async function requestGatePayDeposit(env, input) {
-  if (!env.QRIS_PAYMENT_URL || !env.QRIS_INTERNAL_SECRET) {
-    throw new Error("payment_service_not_configured");
-  }
+  if (!env.QRIS_PAYMENT_URL) throw new Error("missing_qris_payment_url");
+  if (!env.QRIS_INTERNAL_SECRET) throw new Error("missing_qris_internal_secret");
   const target = new URL("/internal/orders", env.QRIS_PAYMENT_URL);
   if (target.protocol !== "https:") throw new Error("invalid_payment_service_url");
 
