@@ -494,7 +494,15 @@ async function handleInternalPayment(request, env) {
     }
 
     return Response.json(
-      { ok: true, duplicate: Boolean(result.duplicate) },
+      {
+        ok: true,
+        duplicate: Boolean(result.duplicate),
+        user: {
+          telegram_id: String(result.deposit.telegram_id),
+          username: result.deposit.username ? String(result.deposit.username) : null,
+          first_name: result.deposit.first_name ? String(result.deposit.first_name) : null,
+        },
+      },
       { headers: { "cache-control": "no-store" } },
     );
   } catch (error) {
