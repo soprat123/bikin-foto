@@ -184,7 +184,7 @@ export async function settleGatePayDeposit(env, event) {
 
   const current = await db
     .prepare(
-      `SELECT d.*, u.balance
+      `SELECT d.*, u.balance, u.username, u.first_name
        FROM deposits d JOIN users u ON u.telegram_id = d.telegram_id
        WHERE d.gatepay_order_id = ?`,
     )
@@ -233,7 +233,7 @@ export async function settleGatePayDeposit(env, event) {
 
   const deposit = await db
     .prepare(
-      `SELECT d.*, u.balance
+      `SELECT d.*, u.balance, u.username, u.first_name
        FROM deposits d JOIN users u ON u.telegram_id = d.telegram_id
        WHERE d.gatepay_order_id = ?`,
     )
