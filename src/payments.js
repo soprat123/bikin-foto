@@ -55,6 +55,9 @@ export async function requestGatePayDeposit(env, input) {
     body: JSON.stringify({
       base_amount: input.amount,
       reference: input.reference,
+      username: input.username || null,
+      first_name: input.firstName || null,
+      telegram_id: input.telegramId || null,
     }),
   });
   const result = await response.json();
