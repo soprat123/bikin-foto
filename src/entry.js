@@ -3,6 +3,8 @@ import worker from "./index.js";
 import {
   DatabaseNotConfiguredError,
   addBalance,
+  attachGatePayOrder,
+  createPendingDeposit,
   createOrderAndCharge,
   ensureDatabase,
   getDatabaseStats,
@@ -10,9 +12,17 @@ import {
   getUser,
   getUserByTarget,
   listUsers,
+  markDepositFailed,
+  markDepositNotificationSent,
+  settleGatePayDeposit,
   subtractBalance,
   upsertUser,
 } from "./db.js";
+import {
+  readInternalJson,
+  requestGatePayDeposit,
+  verifyInternalSecret,
+} from "./payments.js";
 
 const MAIN_MENU = {
   keyboard: [
@@ -47,9 +57,24 @@ const ADMIN_COMMANDS = new Set([
   "refund",
 ]);
 
+const TOPUP_PROMPT =
+  "➕ TOP UP SALDO\n\nBalas pesan ini dengan nominal top up.\nMinimal Rp1.000 dan maksimal Rp10.000.000.";
+
+const TOPUP_FORCE_REPLY = {
+  force_reply: true,
+  input_field_placeholder: "Contoh: 10000",
+};
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/internal/payment-paid") {
+      if (request.method !== "POST") {
+        return Response.json({ ok: false, error: "method_not_allowed" }, { status: 405 });
+      }
+      return handleInternalPayment(request, env);
+    }
 
     if (request.method === "GET" && url.pathname === "/db-status") {
       return databaseStatus(url, env);
@@ -119,6 +144,69 @@ export default {
           `👛 SALDO ANDA\n\nSaldo tersedia: ${formatRupiah(
             registeredUser.balance,
           )}\nID Telegram: ${telegramId}`,
+          MAIN_MENU,
+        );
+      }
+      return new Response("OK");
+    }
+
+    if (text === "➕ Top Up" || command.name === "topup") {
+      if (databaseError || !registeredUser) {
+        await sendDatabaseUnavailable(env, chatId, databaseError);
+      } else {
+        await sendMessage(env, chatId, TOPUP_PROMPT, TOPUP_FORCE_REPLY);
+      }
+      return new Response("OK");
+    }
+
+    if (isTopUpReply(message)) {
+      if (databaseError || !registeredUser) {
+        await sendDatabaseUnavailable(env, chatId, databaseError);
+        return new Response("OK");
+      }
+
+      const amount = parseAdminAmount(text);
+      if (amount < 1_000 || amount > 10_000_000) {
+        await sendMessage(
+          env,
+          chatId,
+          "Nominal top up harus Rp1.000 sampai Rp10.000.000. Balas kembali dengan angka, contoh: 10000.",
+        );
+        return new Response("OK");
+      }
+
+      let deposit;
+      try {
+        deposit = await createPendingDeposit(env, telegramId, update.update_id, amount);
+        if (deposit.status === "creating") {
+          const order = await requestGatePayDeposit(env, {
+            amount,
+            reference: deposit.reference,
+          });
+          deposit = await attachGatePayOrder(env, deposit.reference, order);
+        }
+
+        if (!deposit?.checkout_url || deposit.status !== "pending") {
+          throw new Error("deposit_order_not_ready");
+        }
+
+        await sendMessage(
+          env,
+          chatId,
+          `💳 PEMBAYARAN QRIS\n\nNominal saldo: ${formatRupiah(
+            deposit.requested_amount,
+          )}\nTotal yang harus dibayar: ${formatRupiah(
+            deposit.unique_amount,
+          )}\n\nBuka halaman pembayaran:\n${deposit.checkout_url}\n\nSelesaikan pembayaran sebelum order kedaluwarsa. Saldo akan masuk otomatis setelah pembayaran terverifikasi.`,
+          MAIN_MENU,
+        );
+      } catch (error) {
+        if (deposit?.reference) await markDepositFailed(env, deposit.reference);
+        console.error(JSON.stringify({ event: "deposit_create_failed", message: error.message }));
+        await sendMessage(
+          env,
+          chatId,
+          "⚠️ Gagal membuat pembayaran QRIS. Silakan coba kembali beberapa saat lagi atau hubungi @Abdulgoib.",
           MAIN_MENU,
         );
       }
@@ -310,6 +398,69 @@ function isVerifiedTelegramWebhook(request, url, env) {
     request.headers.get("X-Telegram-Bot-Api-Secret-Token") ===
       env.TELEGRAM_WEBHOOK_SECRET
   );
+}
+
+function isTopUpReply(message) {
+  return String(message.reply_to_message?.text || "").startsWith("➕ TOP UP SALDO");
+}
+
+async function handleInternalPayment(request, env) {
+  if (!env.QRIS_INTERNAL_SECRET || !env.TELEGRAM_BOT_TOKEN) {
+    return Response.json({ ok: false, error: "server_not_configured" }, { status: 500 });
+  }
+  if (!(await verifyInternalSecret(request.headers.get("x-internal-secret"), env.QRIS_INTERNAL_SECRET))) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  let event;
+  try {
+    event = await readInternalJson(request);
+  } catch (error) {
+    const status = error.message === "payload_too_large" ? 413 : 400;
+    return Response.json({ ok: false, error: error.message }, { status });
+  }
+  if (
+    event.event !== "order.paid" ||
+    !event.order_id ||
+    !Number.isSafeInteger(Number(event.unique_amount)) ||
+    !Number.isFinite(Number(event.paid_at))
+  ) {
+    return Response.json({ ok: false, error: "invalid_event" }, { status: 400 });
+  }
+
+  try {
+    const result = await settleGatePayDeposit(env, event);
+    if (!result.success || !result.deposit) {
+      return Response.json(
+        { ok: false, error: result.reason || "settlement_failed" },
+        { status: 409 },
+      );
+    }
+
+    if (!result.deposit.notification_sent_at) {
+      await sendMessage(
+        env,
+        result.deposit.telegram_id,
+        `✅ TOP UP BERHASIL\n\nPembayaran: ${formatRupiah(
+          result.deposit.unique_amount,
+        )}\nSaldo ditambahkan: ${formatRupiah(
+          result.deposit.requested_amount,
+        )}\nSaldo sekarang: ${formatRupiah(
+          result.deposit.balance,
+        )}\n\nSaldo sudah dapat digunakan untuk membuat foto atau video.`,
+        MAIN_MENU,
+      );
+      await markDepositNotificationSent(env, event.order_id);
+    }
+
+    return Response.json(
+      { ok: true, duplicate: Boolean(result.duplicate) },
+      { headers: { "cache-control": "no-store" } },
+    );
+  } catch (error) {
+    console.error(JSON.stringify({ event: "deposit_settlement_failed", message: error.message }));
+    return Response.json({ ok: false, error: "settlement_failed" }, { status: 500 });
+  }
 }
 
 async function databaseStatus(url, env) {

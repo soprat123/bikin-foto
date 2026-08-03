@@ -106,6 +106,158 @@ export async function getTransactions(env, telegramId, limit = 10) {
   return result.results || [];
 }
 
+export async function ensurePaymentSchema(env) {
+  const db = await ensureDatabase(env);
+  await db.batch([
+    db.prepare(
+      `CREATE TABLE IF NOT EXISTS deposits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reference TEXT NOT NULL UNIQUE,
+        telegram_id TEXT NOT NULL,
+        requested_amount INTEGER NOT NULL CHECK (requested_amount > 0),
+        gatepay_order_id TEXT UNIQUE,
+        unique_amount INTEGER,
+        checkout_url TEXT,
+        status TEXT NOT NULL DEFAULT 'creating',
+        paid_at INTEGER,
+        notification_sent_at TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+    ),
+    db.prepare(
+      `CREATE INDEX IF NOT EXISTS idx_deposits_user_created
+       ON deposits(telegram_id, created_at DESC)`,
+    ),
+  ]);
+  return db;
+}
+
+export async function createPendingDeposit(env, telegramId, updateId, amount) {
+  const db = await ensurePaymentSchema(env);
+  const id = String(telegramId);
+  const reference = `deposit:${id}:${String(updateId)}`;
+  const value = toPositiveInteger(amount);
+
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO deposits (
+        reference, telegram_id, requested_amount, status
+      ) VALUES (?, ?, ?, 'creating')`,
+    )
+    .bind(reference, id, value)
+    .run();
+
+  return db.prepare("SELECT * FROM deposits WHERE reference = ?").bind(reference).first();
+}
+
+export async function attachGatePayOrder(env, reference, order) {
+  const db = await ensurePaymentSchema(env);
+  await db
+    .prepare(
+      `UPDATE deposits
+       SET gatepay_order_id = ?, unique_amount = ?, checkout_url = ?,
+           status = 'pending', updated_at = CURRENT_TIMESTAMP
+       WHERE reference = ? AND status = 'creating'`,
+    )
+    .bind(String(order.id), toPositiveInteger(order.unique_amount), String(order.checkout_url), reference)
+    .run();
+  return db.prepare("SELECT * FROM deposits WHERE reference = ?").bind(reference).first();
+}
+
+export async function markDepositFailed(env, reference) {
+  const db = await ensurePaymentSchema(env);
+  await db
+    .prepare(
+      `UPDATE deposits SET status = 'failed', updated_at = CURRENT_TIMESTAMP
+       WHERE reference = ? AND status = 'creating'`,
+    )
+    .bind(reference)
+    .run();
+}
+
+export async function settleGatePayDeposit(env, event) {
+  const db = await ensurePaymentSchema(env);
+  const orderId = String(event.order_id || "");
+  const uniqueAmount = toPositiveInteger(event.unique_amount);
+  const referenceId = `gatepay:${orderId}`;
+
+  const current = await db
+    .prepare(
+      `SELECT d.*, u.balance
+       FROM deposits d JOIN users u ON u.telegram_id = d.telegram_id
+       WHERE d.gatepay_order_id = ?`,
+    )
+    .bind(orderId)
+    .first();
+  if (!current) return { success: false, reason: "deposit_not_found" };
+  if (Number(current.unique_amount) !== uniqueAmount) {
+    return { success: false, reason: "amount_mismatch" };
+  }
+  if (current.status === "paid") {
+    return { success: true, duplicate: true, deposit: current };
+  }
+  if (current.status !== "pending") return { success: false, reason: "deposit_not_pending" };
+  const creditAmount = toPositiveInteger(current.requested_amount);
+
+  await db.batch([
+    db
+      .prepare(
+        `UPDATE deposits SET status = 'processing', paid_at = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE gatepay_order_id = ? AND status = 'pending' AND unique_amount = ?`,
+      )
+      .bind(Number(event.paid_at), orderId, uniqueAmount),
+    db
+      .prepare(
+        `UPDATE users SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP
+         WHERE telegram_id = ? AND changes() > 0`,
+      )
+      .bind(creditAmount, current.telegram_id),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO transactions (
+          telegram_id, type, amount, balance_after, description, reference_id
+        )
+        SELECT telegram_id, 'credit', ?, balance, 'Top up QRIS GatePay', ?
+        FROM users WHERE telegram_id = ? AND changes() > 0`,
+      )
+      .bind(creditAmount, referenceId, current.telegram_id),
+    db
+      .prepare(
+        `UPDATE deposits SET status = 'paid', updated_at = CURRENT_TIMESTAMP
+         WHERE gatepay_order_id = ? AND status = 'processing'
+           AND EXISTS (SELECT 1 FROM transactions WHERE reference_id = ?)`,
+      )
+      .bind(orderId, referenceId),
+  ]);
+
+  const deposit = await db
+    .prepare(
+      `SELECT d.*, u.balance
+       FROM deposits d JOIN users u ON u.telegram_id = d.telegram_id
+       WHERE d.gatepay_order_id = ?`,
+    )
+    .bind(orderId)
+    .first();
+  return {
+    success: deposit?.status === "paid",
+    duplicate: false,
+    reason: deposit?.status === "paid" ? null : "settlement_failed",
+    deposit,
+  };
+}
+
+export async function markDepositNotificationSent(env, orderId) {
+  const db = await ensurePaymentSchema(env);
+  await db
+    .prepare(
+      `UPDATE deposits SET notification_sent_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+       WHERE gatepay_order_id = ? AND notification_sent_at IS NULL`,
+    )
+    .bind(String(orderId))
+    .run();
+}
+
 export async function addBalance(
   env,
   telegramId,
