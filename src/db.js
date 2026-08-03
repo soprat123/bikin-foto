@@ -72,6 +72,19 @@ export async function getUserByTarget(env, target) {
     .first();
 }
 
+export async function setUserBlocked(env, telegramId, blocked = true) {
+  const db = await ensureDatabase(env);
+  await db
+    .prepare(
+      `UPDATE users
+       SET is_blocked = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE telegram_id = ?`,
+    )
+    .bind(blocked ? 1 : 0, String(telegramId))
+    .run();
+  return getUser(env, telegramId);
+}
+
 export async function listUsers(env, limit = 20) {
   const db = await ensureDatabase(env);
   const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 50));
