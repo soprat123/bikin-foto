@@ -15,6 +15,7 @@ import {
   markDepositFailed,
   markDepositNotificationSent,
   settleGatePayDeposit,
+  setUserBlocked,
   subtractBalance,
   upsertUser,
 } from "./db.js";
@@ -69,6 +70,13 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    if (url.pathname === "/internal/admin-command") {
+      if (request.method !== "POST") {
+        return Response.json({ ok: false, error: "method_not_allowed" }, { status: 405 });
+      }
+      return handleInternalAdminCommand(request, env);
+    }
+
     if (url.pathname === "/internal/payment-paid") {
       if (request.method !== "POST") {
         return Response.json({ ok: false, error: "method_not_allowed" }, { status: 405 });
@@ -109,6 +117,15 @@ export default {
     } catch (error) {
       databaseError = error;
       console.error("Gagal mendaftarkan user ke D1:", error);
+    }
+
+    if (registeredUser?.is_blocked) {
+      await sendMessage(
+        env,
+        chatId,
+        "⛔ Akun Anda diblokir oleh admin. Hubungi @Abdulgoib untuk bantuan.",
+      );
+      return new Response("OK");
     }
 
     if (text === "🆘 Bantuan" || command.name === "bantuan") {
@@ -442,6 +459,67 @@ function isVerifiedTelegramWebhook(request, url, env) {
 
 function isTopUpReply(message) {
   return String(message.reply_to_message?.text || "").startsWith("➕ TOP UP SALDO");
+}
+
+async function handleInternalAdminCommand(request, env) {
+  if (!env.QRIS_INTERNAL_SECRET) {
+    return Response.json({ ok: false, error: "server_not_configured" }, { status: 500 });
+  }
+  if (!(await verifyInternalSecret(request.headers.get("x-internal-secret"), env.QRIS_INTERNAL_SECRET))) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  let input;
+  try {
+    input = await readInternalJson(request);
+  } catch (error) {
+    return Response.json({ ok: false, error: error.message || "invalid_json" }, { status: 400 });
+  }
+
+  const action = String(input.action || "").toLowerCase();
+  const target = String(input.target || "").trim();
+  const adminId = String(input.admin_id || "transaksiqrisbot");
+  const user = await getUserByTarget(env, target);
+  if (!user) {
+    return Response.json({ ok: false, error: "user_not_found" }, { status: 404 });
+  }
+
+  if (action === "addcredit") {
+    const amount = parseAdminAmount(input.amount);
+    if (!amount) return Response.json({ ok: false, error: "invalid_amount" }, { status: 400 });
+    const updated = await addBalance(
+      env,
+      user.telegram_id,
+      amount,
+      `Top up melalui @transaksiqrisbot oleh admin ${adminId}`,
+    );
+    return Response.json({ ok: true, action, user: updated });
+  }
+
+  if (action === "minuscredit") {
+    const amount = parseAdminAmount(input.amount);
+    if (!amount) return Response.json({ ok: false, error: "invalid_amount" }, { status: 400 });
+    const result = await subtractBalance(
+      env,
+      user.telegram_id,
+      amount,
+      `Pengurangan melalui @transaksiqrisbot oleh admin ${adminId}`,
+    );
+    if (!result.success) {
+      return Response.json(
+        { ok: false, error: "insufficient_balance", user: result.user },
+        { status: 409 },
+      );
+    }
+    return Response.json({ ok: true, action, user: result.user });
+  }
+
+  if (action === "blokir") {
+    const updated = await setUserBlocked(env, user.telegram_id, true);
+    return Response.json({ ok: true, action, user: updated });
+  }
+
+  return Response.json({ ok: false, error: "invalid_action" }, { status: 400 });
 }
 
 async function handleInternalPayment(request, env) {
