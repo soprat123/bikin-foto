@@ -58,7 +58,7 @@ const ADMIN_COMMANDS = new Set([
 ]);
 
 const TOPUP_PROMPT =
-  "➕ TOP UP SALDO\n\nBalas pesan ini dengan nominal top up.\nMinimal Rp1.000 dan maksimal Rp10.000.000.";
+  "➕ TOP UP SALDO\n\nBalas pesan ini dengan nominal top up.\nMinimal Rp1.000 dan maksimal Rp1.000.000.";
 
 const TOPUP_FORCE_REPLY = {
   force_reply: true,
@@ -166,11 +166,11 @@ export default {
       }
 
       const amount = parseAdminAmount(text);
-      if (amount < 1_000 || amount > 10_000_000) {
+      if (amount < 1_000 || amount > 1_000_000) {
         await sendMessage(
           env,
           chatId,
-          "Nominal top up harus Rp1.000 sampai Rp10.000.000. Balas kembali dengan angka, contoh: 10000.",
+          "Nominal top up harus Rp1.000 sampai Rp1.000.000. Balas kembali dengan angka, contoh: 10000.",
         );
         return new Response("OK");
       }
@@ -202,11 +202,30 @@ export default {
         );
       } catch (error) {
         if (deposit?.reference) await markDepositFailed(env, deposit.reference);
-        console.error(JSON.stringify({ event: "deposit_create_failed", message: error.message }));
+        console.error(
+          JSON.stringify({
+            event: "deposit_create_failed",
+            message: error.message,
+            upstream_status: error.upstreamStatus || null,
+            upstream_message: error.upstreamMessage || null,
+          }),
+        );
+        let userMessage =
+          "⚠️ Gagal membuat pembayaran QRIS. Silakan coba kembali beberapa saat lagi atau hubungi @Abdulgoib.";
+        const upstream = String(error.upstreamMessage || "").toLowerCase();
+        if (error.upstreamStatus === 401 || error.upstreamStatus === 403) {
+          userMessage =
+            "⚠️ GATEPAY_API_KEY ditolak. Admin perlu memeriksa kembali API key GatePay di Worker QRIS.";
+        } else if (upstream.includes("qris") || upstream.includes("merchant")) {
+          userMessage = `⚠️ GatePay menolak order: ${error.upstreamMessage}`;
+        } else if (error.message === "unauthorized") {
+          userMessage =
+            "⚠️ QRIS_INTERNAL_SECRET pada kedua Worker tidak sama. Admin perlu menyamakan nilainya lalu deploy ulang.";
+        }
         await sendMessage(
           env,
           chatId,
-          "⚠️ Gagal membuat pembayaran QRIS. Silakan coba kembali beberapa saat lagi atau hubungi @Abdulgoib.",
+          userMessage,
           MAIN_MENU,
         );
       }

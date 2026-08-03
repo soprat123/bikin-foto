@@ -60,7 +60,10 @@ export async function requestGatePayDeposit(env, input) {
   });
   const result = await response.json();
   if (!response.ok || !result.ok || !result.order?.id) {
-    throw new Error(result.error || `payment_service_http_${response.status}`);
+    const error = new Error(result.error || `payment_service_http_${response.status}`);
+    error.upstreamStatus = Number(result.upstream_status || 0);
+    error.upstreamMessage = String(result.upstream_message || "").slice(0, 300);
+    throw error;
   }
   return result.order;
 }
