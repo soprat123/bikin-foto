@@ -153,6 +153,16 @@ export async function handlePaidChat(
     return true;
   }
 
+  if (started.duplicate && started.request?.status === "processing") {
+    await sendMessage(
+      env,
+      chatId,
+      "⏳ Pesan Chat AI ini masih diproses. Mohon tunggu jawabannya.",
+      CHAT_MENU,
+    );
+    return true;
+  }
+
   if (started.request?.status !== "processing") {
     return true;
   }
