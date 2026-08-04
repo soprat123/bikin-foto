@@ -64,7 +64,7 @@ export async function handleChatControl(
     await sendMessage(
       env,
       chatId,
-      "💬 CHAT AI\n\nPilih model. Setiap pesan yang berhasil dijawab akan mengurangi saldo. Ingatan percakapan tersimpan sementara selama 24 jam.",
+      "💬 CHAT AI\n\nPilih model. Setiap pesan yang berhasil dijawab akan mengurangi saldo. Ingatan percakapan tersimpan sementara selama 2 jam.",
       CHAT_MENU,
     );
     return true;
@@ -75,7 +75,7 @@ export async function handleChatControl(
     await sendMessage(
       env,
       chatId,
-      "✅ CHAT AI MEDIUM AKTIF\n\nModel: grok-4.3\nBiaya: Rp200 per pesan\n\nSilakan kirim pesan atau tanyakan apa saja. Percakapan Anda dengan AI akan diingat sementara selama 24 jam.",
+      "✅ CHAT AI MEDIUM AKTIF\n\nModel: grok-4.3\nBiaya: Rp200 per pesan\n\nSilakan kirim pesan atau tanyakan apa saja. Percakapan Anda dengan AI akan diingat sementara selama 2 jam.",
       CHAT_MENU,
     );
     return true;
@@ -86,7 +86,7 @@ export async function handleChatControl(
     await sendMessage(
       env,
       chatId,
-      "✅ CHAT AI PALING PINTAR AKTIF\n\nModel: grok-4.5\nBiaya: Rp500 per pesan\n\nSilakan kirim pesan atau tanyakan apa saja. Percakapan Anda dengan AI akan diingat sementara selama 24 jam.",
+      "✅ CHAT AI PALING PINTAR AKTIF\n\nModel: grok-4.5\nBiaya: Rp500 per pesan\n\nSilakan kirim pesan atau tanyakan apa saja. Percakapan Anda dengan AI akan diingat sementara selama 2 jam.",
       CHAT_MENU,
     );
     return true;
@@ -117,12 +117,6 @@ export async function handleChatControl(
 
   if (text === "⛔ Akhiri Chat AI" || commandName === "endchat") {
     await endChatSession(env, telegramId);
-    await sendMessage(
-      env,
-      chatId,
-      "Chat AI telah diakhiri. Ingatan tidak langsung dihapus dan akan kedaluwarsa otomatis setelah 24 jam.",
-      mainMenu,
-    );
     return true;
   }
 
