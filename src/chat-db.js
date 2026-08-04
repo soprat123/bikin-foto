@@ -55,11 +55,11 @@ export async function startChatSession(env, telegramId, model) {
     .prepare(
       `INSERT INTO chat_sessions (
         telegram_id, model, active, expires_at
-      ) VALUES (?, ?, 1, datetime('now', '+24 hours'))
+      ) VALUES (?, ?, 1, datetime('now', '+2 hours'))
       ON CONFLICT(telegram_id) DO UPDATE SET
         model = excluded.model,
         active = 1,
-        expires_at = datetime('now', '+24 hours'),
+        expires_at = datetime('now', '+2 hours'),
         updated_at = CURRENT_TIMESTAMP`,
     )
     .bind(String(telegramId), model)
@@ -119,7 +119,7 @@ export async function getChatMemory(env, telegramId, limit = 20) {
          SELECT id, role, content, created_at
          FROM chat_messages
          WHERE telegram_id = ?
-           AND created_at >= datetime('now', '-24 hours')
+           AND created_at >= datetime('now', '-2 hours')
          ORDER BY id DESC
          LIMIT ?
        )
@@ -147,7 +147,7 @@ export async function saveChatExchange(env, telegramId, userText, assistantText)
     db
       .prepare(
         `UPDATE chat_sessions
-         SET expires_at = datetime('now', '+24 hours'),
+         SET expires_at = datetime('now', '+2 hours'),
              updated_at = CURRENT_TIMESTAMP
          WHERE telegram_id = ?`,
       )
