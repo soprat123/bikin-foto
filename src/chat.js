@@ -49,7 +49,9 @@ export function isReservedBotText(text) {
   const value = String(text || "").trim();
   return (
     RESERVED_TEXTS.has(value) ||
-    /(?:Rp\d|\d+p|detik|High Quality|Standard)/i.test(value)
+    /^(?:Edit )?(?:Standard|High Quality) [12]K — Rp[\d.]+$/i.test(value) ||
+    /^(?:480p|720p|1080p)(?: HQ)? • \d+ detik — Rp[\d.]+$/i.test(value) ||
+    /^(?:480p|720p|1080p) (?:Standard|High Quality)$/i.test(value)
   );
 }
 
