@@ -32,6 +32,10 @@ async function ensureChatSchema(env) {
        ON chat_messages(telegram_id, id DESC)`,
     ),
     db.prepare(
+      `DELETE FROM chat_messages
+       WHERE created_at < datetime('now', '-2 hours')`,
+    ),
+    db.prepare(
       `CREATE TABLE IF NOT EXISTS chat_requests (
         telegram_update_id TEXT PRIMARY KEY,
         telegram_id TEXT NOT NULL,
