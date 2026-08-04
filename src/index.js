@@ -715,7 +715,7 @@ async function handleUpdate(update, env) {
     await sendMessage(
       env,
       chatId,
-      "🆘 BANTUAN\n\nHubungi admin pemilik bot @Abdulgoib jika ingin top up manual dan ada kendala atau error pada bot",
+      "🆘 BANTUAN\n\nHubungi admin pemilik bot jika ada eror dan keterlambatan top up saldo bot masih diproses manual @Abdulgoib",
       MAIN_MENU,
     );
     return;
