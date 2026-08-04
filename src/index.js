@@ -3,6 +3,7 @@ const MAIN_MENU = keyboard(
     ["🖼 Generate Foto", "🎬 Generate Video"],
     ["💰 Harga", "✏️ Edit Foto"],
     ["👛 Saldo", "➕ Top Up"],
+    ["💬 Chat AI"],
     ["📜 Riwayat Transaksi"],
     ["🆘 Bantuan"],
   ],
@@ -116,6 +117,11 @@ const BOT_COMMANDS = [
   { command: "topup", description: "Isi saldo" },
   { command: "saldo", description: "Periksa saldo" },
   { command: "riwayat", description: "Lihat riwayat transaksi" },
+  { command: "chat", description: "Buka Chat AI" },
+  { command: "model", description: "Pilih model Chat AI" },
+  { command: "memory", description: "Lihat ingatan sementara" },
+  { command: "clearmemory", description: "Hapus ingatan sementara" },
+  { command: "endchat", description: "Akhiri Chat AI" },
   { command: "bantuan", description: "Hubungi bantuan" },
 ];
 
@@ -177,6 +183,13 @@ STANDARD
 HIGH QUALITY
 • 1K — Rp1.000
 • 2K — Rp1.500
+
+━━━━━━━━━━━━━━━━━━
+💬 CHAT AI
+━━━━━━━━━━━━━━━━━━
+
+• grok-4.3 Medium — Rp200/pesan
+• grok-4.5 Paling Pintar — Rp500/pesan
 
 ━━━━━━━━━━━━━━━━━━
 📝 INFORMASI
