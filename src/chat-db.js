@@ -174,7 +174,7 @@ export async function beginChatRequest(env, input) {
   const config = CHAT_MODELS[input.model];
   if (!config) throw new Error("invalid_chat_model");
 
-  await db
+  const insertResult = await db
     .prepare(
       `INSERT OR IGNORE INTO chat_requests (
         telegram_update_id, telegram_id, model, price, status
@@ -189,7 +189,9 @@ export async function beginChatRequest(env, input) {
     .first();
   const user = await getUser(env, telegramId);
   return {
-    duplicate: request?.telegram_id !== telegramId || request?.created_at !== request?.updated_at,
+    duplicate:
+      Number(insertResult?.meta?.changes || 0) === 0 ||
+      request?.telegram_id !== telegramId,
     request,
     user,
     canAfford: Number(user?.balance || 0) >= config.price,
