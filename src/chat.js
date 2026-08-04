@@ -74,7 +74,7 @@ export async function handleChatControl(
     await sendMessage(
       env,
       chatId,
-      "✅ CHAT AI MEDIUM AKTIF\n\nModel: grok-4.3\nBiaya: Rp200 per pesan\n\nSilakan kirim arahan atau diskusikan konsep foto. Bot akan mengingat percakapan ini sementara, atau tanyakan apa saja?",
+      "✅ CHAT AI MEDIUM AKTIF\n\nModel: grok-4.3\nBiaya: Rp200 per pesan\n\nSilakan kirim pesan atau tanyakan apa saja. Percakapan Anda dengan AI akan diingat sementara selama 24 jam.",
       CHAT_MENU,
     );
     return true;
@@ -85,7 +85,7 @@ export async function handleChatControl(
     await sendMessage(
       env,
       chatId,
-      "✅ CHAT AI PALING PINTAR AKTIF\n\nModel: grok-4.5\nBiaya: Rp500 per pesan\n\nSilakan kirim arahan atau diskusikan konsep foto. Bot akan mengingat percakapan ini sementara, atau tanyakan apa saja?",
+      "✅ CHAT AI PALING PINTAR AKTIF\n\nModel: grok-4.5\nBiaya: Rp500 per pesan\n\nSilakan kirim pesan atau tanyakan apa saja. Percakapan Anda dengan AI akan diingat sementara selama 24 jam.",
       CHAT_MENU,
     );
     return true;
@@ -267,7 +267,7 @@ async function requestChatCompletion(env, model, memory, userText) {
     {
       role: "system",
       content:
-        "Anda adalah asisten AI serbaguna di bot Bikin Foto. Jawab pertanyaan umum pengguna dengan jelas dan akurat dalam Bahasa Indonesia. Jika pengguna membahas foto, bantu menyusun konsep dan arahan visual untuk generate foto. Ingat detail percakapan yang diberikan, terapkan koreksi terbaru, dan tanyakan klarifikasi bila perlu. Jangan mengaku sudah membuat gambar sebelum pengguna memilih menu Generate Foto.",
+        "Anda adalah asisten AI Grok yang didukung oleh xAI. Lakukan percakapan langsung dan alami dengan pengguna serta jawab pertanyaan mereka dengan jelas dan akurat dalam Bahasa Indonesia. Jangan menyebut bot Bikin Foto atau menawarkan pembuatan foto kecuali pengguna sendiri membahas atau memintanya. Ingat konteks percakapan yang diberikan dan terapkan koreksi terbaru. Jika ditanya identitas, jelaskan bahwa Anda adalah Grok dari xAI. Jangan mengaku sudah membuat gambar sebelum pengguna memilih menu Generate Foto.",
     },
     ...memory.map((item) => ({
       role: item.role === "assistant" ? "assistant" : "user",
