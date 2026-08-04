@@ -1,6 +1,11 @@
 import { pollPendingVideos, processPaidOrder } from "./xai.js";
 import worker from "./index.js";
 import {
+  appendChatMemoryToImagePrompt,
+  handleChatControl,
+  handlePaidChat,
+} from "./chat.js";
+import {
   DatabaseNotConfiguredError,
   addBalance,
   attachGatePayOrder,
@@ -39,6 +44,7 @@ const MAIN_MENU = {
       { text: "👛 Saldo" },
       { text: "➕ Top Up" },
     ],
+    [{ text: "💬 Chat AI" }],
     [{ text: "📜 Riwayat Transaksi" }],
     [{ text: "🆘 Bantuan" }],
   ],
@@ -125,6 +131,30 @@ export default {
         chatId,
         "⛔ Akun Anda diblokir oleh admin. Hubungi @Abdulgoib untuk bantuan.",
       );
+      return new Response("OK");
+    }
+
+    const chatControl =
+      text === "💬 Chat AI" ||
+      text === "⚡ Medium — Rp200/pesan" ||
+      text === "🧠 Paling Pintar — Rp500/pesan" ||
+      text === "🧾 Lihat Ingatan" ||
+      text === "🗑 Hapus Ingatan" ||
+      text === "⛔ Akhiri Chat AI" ||
+      ["chat", "model", "memory", "clearmemory", "endchat"].includes(command.name);
+
+    if (chatControl) {
+      if (databaseError || !registeredUser) {
+        await sendDatabaseUnavailable(env, chatId, databaseError);
+      } else {
+        await handleChatControl(env, {
+          chatId,
+          telegramId,
+          text,
+          commandName: command.name,
+          mainMenu: MAIN_MENU,
+        });
+      }
       return new Response("OK");
     }
 
@@ -322,12 +352,20 @@ export default {
     }
 
     const replyContext = parseReplyContext(message.reply_to_message?.text || "");
-    const orderPrompt = getValidOrderPrompt(message, replyContext);
+    let orderPrompt = getValidOrderPrompt(message, replyContext);
 
     if (replyContext && orderPrompt !== null) {
       if (databaseError) {
         await sendDatabaseUnavailable(env, chatId, databaseError);
         return new Response("OK");
+      }
+
+      if (replyContext.kind === "Generate Foto") {
+        orderPrompt = await appendChatMemoryToImagePrompt(
+          env,
+          telegramId,
+          orderPrompt,
+        );
       }
 
       const moderationCategory = detectBlockedRequest(orderPrompt);
@@ -436,6 +474,23 @@ export default {
       }
 
       return new Response("OK");
+    }
+
+    if (!databaseError) {
+      try {
+        const handledChat = await handlePaidChat(env, {
+          updateId: update.update_id,
+          chatId,
+          telegramId,
+          text,
+          mainMenu: MAIN_MENU,
+        });
+        if (handledChat) return new Response("OK");
+      } catch (error) {
+        console.error("Gagal menangani Chat AI:", error);
+        await sendDatabaseUnavailable(env, chatId, error);
+        return new Response("OK");
+      }
     }
 
     return worker.fetch(request, env, ctx);
