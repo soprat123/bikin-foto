@@ -10,6 +10,7 @@ import {
   saveChatExchange,
   startChatSession,
 } from "./chat-db.js";
+import { detectBlockedRequest } from "./moderation.js";
 
 const XAI_BASE_URL = "https://api.x.ai/v1";
 
@@ -138,6 +139,25 @@ export async function handlePaidChat(
 
   const config = CHAT_MODELS[session.model];
   if (!config) return false;
+
+  const moderationCategory = detectBlockedRequest(text);
+  if (moderationCategory) {
+    console.warn(
+      JSON.stringify({
+        event: "chat_ai_blocked",
+        category: moderationCategory,
+        telegram_id: String(telegramId),
+        model: session.model,
+      }),
+    );
+    await sendMessage(
+      env,
+      chatId,
+      "🚫 PERMINTAAN DITOLAK\n\nPesan mengandung kata atau tema yang dilarang oleh filter keamanan bot. Saldo tidak dipotong dan pesan tidak disimpan dalam ingatan. Silakan ubah pertanyaan menjadi konten yang aman.",
+      CHAT_MENU,
+    );
+    return true;
+  }
 
   const started = await beginChatRequest(env, {
     telegramUpdateId: updateId,
