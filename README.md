@@ -14,6 +14,10 @@ Worker QRIS menggunakan `QRIS_INTERNAL_SECRET`. Notifikasi utama kemudian dikiri
 bot transaksi. Jika panggilan itu gagal, bot Bikin Foto mengirim notifikasi cadangan
 kepada admin.
 
+Sebelum mengirim invoice, bot memastikan webhook Telegram otomatis menerima update
+`message` dan `callback_query`. Karena itu tombol invoice tidak bergantung pada admin
+menjalankan endpoint `/setup` secara manual setelah setiap deployment.
+
 Tambahkan secret `QRIS_API_KEY` pada Worker `bikin-foto` dengan nilai yang sama persis
 seperti pada Worker QRIS. Setelah deploy, jalankan kembali endpoint `/setup` menggunakan
 `SETUP_KEY` agar webhook Telegram menerima update `callback_query` dari tombol invoice.
