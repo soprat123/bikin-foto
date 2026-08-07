@@ -228,6 +228,7 @@ export default {
       }
 
       try {
+        await ensureTelegramCallbackWebhook(env, url.origin);
         const qrisImage = await requestDynamicQris(env, amount);
         const orderId = String(update.update_id);
         const expiresAt = Date.now() + 60 * 60 * 1000;
@@ -1120,6 +1121,25 @@ async function telegramMethod(env, method, payload) {
     throw new Error(result.description || `Telegram API error ${response.status}`);
   }
   return result;
+}
+
+async function ensureTelegramCallbackWebhook(env, origin) {
+  if (!env.TELEGRAM_WEBHOOK_SECRET) {
+    throw new Error("missing_telegram_webhook_secret");
+  }
+  const webhookUrl = new URL("/webhook", origin);
+  if (webhookUrl.protocol !== "https:") {
+    throw new Error("invalid_telegram_webhook_url");
+  }
+  await telegramMethod(env, "setWebhook", {
+    url: webhookUrl.toString(),
+    secret_token: env.TELEGRAM_WEBHOOK_SECRET,
+    allowed_updates: ["message", "callback_query"],
+  });
+  console.log(JSON.stringify({
+    event: "telegram_callback_webhook_confirmed",
+    webhook_url: webhookUrl.toString(),
+  }));
 }
 
 async function handleTopupCallback(env, callback) {
