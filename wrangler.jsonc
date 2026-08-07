@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "bikin-foto",
   "main": "src/entry.js",
-  "compatibility_date": "2026-07-30",
+  "compatibility_date": "2026-08-07",
   "workers_dev": true,
   "d1_databases": [
     {
@@ -16,6 +16,10 @@
     "crons": [
       "* * * * *"
     ]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
   },
   "compatibility_flags": [
     "global_fetch_strictly_public"

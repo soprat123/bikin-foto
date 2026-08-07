@@ -9,8 +9,6 @@ import { detectBlockedRequest } from "./moderation.js";
 import {
   DatabaseNotConfiguredError,
   addBalance,
-  attachGatePayOrder,
-  createPendingDeposit,
   createOrderAndCharge,
   ensureDatabase,
   getDatabaseStats,
@@ -18,7 +16,6 @@ import {
   getUser,
   getUserByTarget,
   listUsers,
-  markDepositFailed,
   markDepositNotificationSent,
   settleGatePayDeposit,
   setUserBlocked,
@@ -27,7 +24,9 @@ import {
 } from "./db.js";
 import {
   readInternalJson,
-  requestGatePayDeposit,
+  buildManualTopupInvoice,
+  notifyTransactionBot,
+  requestDynamicQris,
   verifyInternalSecret,
 } from "./payments.js";
 
@@ -104,6 +103,11 @@ export default {
       update = await request.clone().json();
     } catch {
       return worker.fetch(request, env, ctx);
+    }
+
+    if (update.callback_query?.id && update.callback_query?.from?.id) {
+      await handleTopupCallback(env, update.callback_query);
+      return new Response("OK");
     }
 
     const message = update.message;
@@ -223,71 +227,49 @@ export default {
         return new Response("OK");
       }
 
-      let deposit;
       try {
-        deposit = await createPendingDeposit(env, telegramId, update.update_id, amount);
-        if (deposit.status === "creating") {
-          const order = await requestGatePayDeposit(env, {
-            amount,
-            reference: deposit.reference,
-            username: message.from.username || "",
-            firstName: message.from.first_name || "",
-            telegramId,
-          });
-          deposit = await attachGatePayOrder(env, deposit.reference, order);
-        }
-
-        if (!deposit?.checkout_url || deposit.status !== "pending") {
-          throw new Error("deposit_order_not_ready");
-        }
-
-        await sendMessage(
+        await ensureTelegramCallbackWebhook(env, url.origin);
+        const qrisImage = await requestDynamicQris(env, amount);
+        const orderId = String(update.update_id);
+        const expiresAt = Date.now() + 60 * 60 * 1000;
+        const callbackSuffix = `${amount}:${orderId}:${Math.floor(expiresAt / 60_000).toString(36)}`;
+        await sendPhoto(
           env,
           chatId,
-          `💳 PEMBAYARAN QRIS\n\nNominal saldo: ${formatRupiah(
-            deposit.requested_amount,
-          )}\nTotal yang harus dibayar: ${formatRupiah(
-            deposit.unique_amount,
-          )}\n\nBuka halaman pembayaran:\n${deposit.checkout_url}\n\nSelesaikan pembayaran sebelum order kedaluwarsa. Saldo akan masuk otomatis setelah pembayaran terverifikasi.`,
-          MAIN_MENU,
+          qrisImage,
+          buildManualTopupInvoice({ amount, orderId, expiresAt }),
+          {
+            inline_keyboard: [
+              [{ text: "✅ Saya Sudah Bayar", callback_data: `topup_paid:${callbackSuffix}` }],
+              [{ text: "❌ Batalkan Pesanan", callback_data: `topup_cancel:${callbackSuffix}` }],
+            ],
+          },
         );
       } catch (error) {
-        if (deposit?.reference) await markDepositFailed(env, deposit.reference);
         console.error(
           JSON.stringify({
-            event: "deposit_create_failed",
+            event: "manual_qris_create_failed",
             message: error.message,
-            upstream_status: error.upstreamStatus || null,
-            upstream_message: error.upstreamMessage || null,
           }),
         );
         let userMessage =
           "⚠️ Gagal membuat pembayaran QRIS. Silakan coba kembali beberapa saat lagi atau hubungi @Abdulgoib.";
         const errorCode = String(error.message || "unknown_error");
-        const upstreamMessage = String(error.upstreamMessage || "").trim();
-        const upstream = upstreamMessage.toLowerCase();
         if (errorCode === "missing_qris_payment_url") {
           userMessage =
             "⚠️ QRIS_PAYMENT_URL belum terbaca di deployment aktif Worker bikin-foto.";
-        } else if (errorCode === "missing_qris_internal_secret") {
+        } else if (errorCode === "missing_qris_api_key") {
           userMessage =
-            "⚠️ QRIS_INTERNAL_SECRET belum terbaca di deployment aktif Worker bikin-foto.";
+            "⚠️ QRIS_API_KEY belum dipasang pada Worker bikin-foto.";
         } else if (errorCode === "invalid_payment_service_url") {
           userMessage =
             "⚠️ QRIS_PAYMENT_URL tidak valid atau tidak menggunakan HTTPS.";
         } else if (errorCode === "unauthorized") {
           userMessage =
-            "⚠️ QRIS_INTERNAL_SECRET pada kedua Worker tidak sama. Admin perlu menyamakan nilainya lalu deploy ulang.";
+            "⚠️ QRIS_API_KEY pada Worker bikin-foto tidak sama dengan Worker QRIS.";
         } else if (errorCode === "server_not_configured") {
           userMessage =
-            "⚠️ GATEPAY_API_KEY atau QRIS_INTERNAL_SECRET belum terbaca di Worker QRIS.";
-        } else if (error.upstreamStatus === 401 || error.upstreamStatus === 403) {
-          userMessage =
-            "⚠️ GATEPAY_API_KEY ditolak. Admin perlu memeriksa kembali API key GatePay di Worker QRIS.";
-        } else if (upstreamMessage) {
-          userMessage = `⚠️ GatePay menolak order (HTTP ${error.upstreamStatus || "-"}): ${upstreamMessage}`;
-        } else if (error.upstreamStatus) {
-          userMessage = `⚠️ GatePay gagal tanpa rincian (HTTP ${error.upstreamStatus}). Periksa QRIS merchant dan log Worker QRIS.`;
+            "⚠️ QRIS_API_KEY atau QRIS_STATIC_PAYLOAD belum terbaca di Worker QRIS.";
         } else {
           userMessage = `⚠️ Layanan QRIS gagal: ${errorCode.slice(0, 160)}`;
         }
@@ -1096,4 +1078,160 @@ async function sendMessage(env, chatId, text, replyMarkup) {
   }
 
   return result;
+}
+
+async function sendPhoto(env, chatId, image, caption, replyMarkup) {
+  const form = new FormData();
+  form.append("chat_id", String(chatId));
+  form.append("photo", new Blob([image], { type: "image/png" }), "qris.png");
+  form.append("caption", caption);
+  if (replyMarkup) form.append("reply_markup", JSON.stringify(replyMarkup));
+
+  const response = await fetch(
+    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`,
+    { method: "POST", body: form },
+  );
+  const result = await response.json();
+  if (!response.ok || !result.ok) {
+    throw new Error(result.description || `Telegram API error ${response.status}`);
+  }
+  return result;
+}
+
+function parseTopupCallback(value) {
+  const match = String(value || "").match(
+    /^topup_(paid|cancel):(\d{1,7}):(\d{1,16}):([0-9a-z]+)$/,
+  );
+  if (!match) return null;
+  const amount = Number(match[2]);
+  const expiresAt = Number.parseInt(match[4], 36) * 60_000;
+  if (!Number.isSafeInteger(amount) || amount < 1_000 || amount > 1_000_000) return null;
+  if (!Number.isSafeInteger(expiresAt)) return null;
+  return { action: match[1], amount, orderId: match[3], expiresAt };
+}
+
+async function telegramMethod(env, method, payload) {
+  const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) {
+    throw new Error(result.description || `Telegram API error ${response.status}`);
+  }
+  return result;
+}
+
+async function ensureTelegramCallbackWebhook(env, origin) {
+  if (!env.TELEGRAM_WEBHOOK_SECRET) {
+    throw new Error("missing_telegram_webhook_secret");
+  }
+  const webhookUrl = new URL("/webhook", origin);
+  if (webhookUrl.protocol !== "https:") {
+    throw new Error("invalid_telegram_webhook_url");
+  }
+  await telegramMethod(env, "setWebhook", {
+    url: webhookUrl.toString(),
+    secret_token: env.TELEGRAM_WEBHOOK_SECRET,
+    allowed_updates: ["message", "callback_query"],
+  });
+  console.log(JSON.stringify({
+    event: "telegram_callback_webhook_confirmed",
+    webhook_url: webhookUrl.toString(),
+  }));
+}
+
+async function handleTopupCallback(env, callback) {
+  const parsed = parseTopupCallback(callback.data);
+  if (!parsed) {
+    await telegramMethod(env, "answerCallbackQuery", {
+      callback_query_id: callback.id,
+      text: "Tombol pembayaran tidak valid.",
+      show_alert: true,
+    });
+    return;
+  }
+
+  if (Date.now() > parsed.expiresAt) {
+    await telegramMethod(env, "answerCallbackQuery", {
+      callback_query_id: callback.id,
+      text: "Invoice sudah melewati batas konfirmasi 60 menit.",
+      show_alert: true,
+    });
+    return;
+  }
+
+  const message = callback.message;
+  if (!message?.chat?.id || !message.message_id) return;
+  if (String(message.chat.id) !== String(callback.from.id)) {
+    await telegramMethod(env, "answerCallbackQuery", {
+      callback_query_id: callback.id,
+      text: "Tombol invoice hanya dapat digunakan oleh pemilik pesanan.",
+      show_alert: true,
+    });
+    return;
+  }
+  const username = callback.from.username ? `@${callback.from.username}` : "-";
+  const name = callback.from.first_name || "Pengguna";
+  const currentCaption = String(message.caption || "").replace(/\n\n(?:🟡|❌).+$/s, "");
+
+  if (parsed.action === "cancel") {
+    await telegramMethod(env, "answerCallbackQuery", {
+      callback_query_id: callback.id,
+      text: "Pesanan dibatalkan.",
+    });
+    await telegramMethod(env, "editMessageCaption", {
+      chat_id: message.chat.id,
+      message_id: message.message_id,
+      caption: `${currentCaption}\n\n❌ Pesanan dibatalkan oleh pengguna.`,
+      reply_markup: { inline_keyboard: [] },
+    });
+    return;
+  }
+
+  await telegramMethod(env, "answerCallbackQuery", {
+    callback_query_id: callback.id,
+    text: "Admin akan memeriksa pembayaran Anda.",
+    show_alert: true,
+  });
+  await telegramMethod(env, "editMessageCaption", {
+    chat_id: message.chat.id,
+    message_id: message.message_id,
+    caption: `${currentCaption}\n\n🟡 Menunggu pemeriksaan pembayaran oleh admin.`,
+    reply_markup: { inline_keyboard: [] },
+  });
+
+  try {
+    await notifyTransactionBot(env, {
+      amount: parsed.amount,
+      orderId: parsed.orderId,
+      telegramId: String(callback.from.id),
+      username: callback.from.username || "",
+      firstName: name,
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "transaction_bot_notification_failed",
+        order_id: parsed.orderId,
+        telegram_id: String(callback.from.id),
+        message: error.message,
+      }),
+    );
+    const adminIds = [...new Set(
+      [env.ADMIN_TELEGRAM_ID, env.ADMIN2_TELEGRAM_ID]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    )];
+    await Promise.allSettled(
+      adminIds.map((adminId) =>
+        sendMessage(
+          env,
+          adminId,
+          `⚠️ NOTIFIKASI CADANGAN TOP UP\n\nBot transaksi gagal menerima notifikasi.\nPengguna: ${name}\nUsername: ${username}\nID Telegram: ${callback.from.id}\nOrder ID: #${parsed.orderId}\nNominal: ${formatRupiah(parsed.amount)}\n\nPeriksa mutasi merchant secara manual.`,
+        ),
+      ),
+    );
+  }
 }
