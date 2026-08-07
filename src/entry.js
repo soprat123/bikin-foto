@@ -25,6 +25,7 @@ import {
 import {
   readInternalJson,
   buildManualTopupInvoice,
+  notifyTransactionBot,
   requestDynamicQris,
   verifyInternalSecret,
 } from "./payments.js";
@@ -1181,28 +1182,36 @@ async function handleTopupCallback(env, callback) {
     reply_markup: { inline_keyboard: [] },
   });
 
-  const adminIds = [...new Set(
-    [env.ADMIN_TELEGRAM_ID, env.ADMIN2_TELEGRAM_ID]
-      .map((value) => String(value || "").trim())
-      .filter(Boolean),
-  )];
-  const deliveries = await Promise.allSettled(
-    adminIds.map((adminId) =>
-      sendMessage(
-        env,
-        adminId,
-        `🟡 PERIKSA PEMBAYARAN MANUAL\n\nPengguna: ${name}\nUsername: ${username}\nID Telegram: ${callback.from.id}\nOrder ID: #${parsed.orderId}\nNominal: ${formatRupiah(parsed.amount)}\n\nPeriksa mutasi merchant. Jika pembayaran masuk, tambahkan saldo menggunakan command admin.`,
-      ),
-    ),
-  );
-  if (!deliveries.some((delivery) => delivery.status === "fulfilled")) {
+  try {
+    await notifyTransactionBot(env, {
+      amount: parsed.amount,
+      orderId: parsed.orderId,
+      telegramId: String(callback.from.id),
+      username: callback.from.username || "",
+      firstName: name,
+    });
+  } catch (error) {
     console.error(
       JSON.stringify({
-        event: "manual_topup_admin_notification_failed",
+        event: "transaction_bot_notification_failed",
         order_id: parsed.orderId,
         telegram_id: String(callback.from.id),
-        admin_count: adminIds.length,
+        message: error.message,
       }),
+    );
+    const adminIds = [...new Set(
+      [env.ADMIN_TELEGRAM_ID, env.ADMIN2_TELEGRAM_ID]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    )];
+    await Promise.allSettled(
+      adminIds.map((adminId) =>
+        sendMessage(
+          env,
+          adminId,
+          `⚠️ NOTIFIKASI CADANGAN TOP UP\n\nBot transaksi gagal menerima notifikasi.\nPengguna: ${name}\nUsername: ${username}\nID Telegram: ${callback.from.id}\nOrder ID: #${parsed.orderId}\nNominal: ${formatRupiah(parsed.amount)}\n\nPeriksa mutasi merchant secara manual.`,
+        ),
+      ),
     );
   }
 }
