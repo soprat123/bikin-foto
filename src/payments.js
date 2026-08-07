@@ -131,3 +131,35 @@ export function buildManualTopupInvoice({ amount, orderId, expiresAt }) {
 
 Menunggu pembayaran…`;
 }
+
+export async function notifyTransactionBot(env, input) {
+  if (!env.QRIS_PAYMENT_URL) throw new Error("missing_qris_payment_url");
+  if (!env.QRIS_INTERNAL_SECRET) throw new Error("missing_qris_internal_secret");
+  const target = new URL("/internal/manual-topup-notify", env.QRIS_PAYMENT_URL);
+  if (target.protocol !== "https:") throw new Error("invalid_payment_service_url");
+
+  const response = await fetch(target, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-internal-secret": env.QRIS_INTERNAL_SECRET,
+    },
+    body: JSON.stringify({
+      amount: input.amount,
+      order_id: input.orderId,
+      telegram_id: input.telegramId,
+      username: input.username || null,
+      first_name: input.firstName || null,
+    }),
+  });
+  let result = {};
+  try {
+    result = await response.json();
+  } catch {
+    // Status HTTP tetap diperiksa di bawah.
+  }
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || `transaction_bot_http_${response.status}`);
+  }
+  return result;
+}
