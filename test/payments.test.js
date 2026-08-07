@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildManualTopupInvoice,
+  notifyTransactionBot,
   readInternalJson,
   requestDynamicQris,
   verifyInternalSecret,
@@ -53,4 +54,36 @@ test("requests a protected dynamic QRIS PNG", async (context) => {
     10_000,
   );
   assert.equal(image.byteLength, 4);
+});
+
+test("notifies the transaction bot through the protected internal endpoint", async (context) => {
+  const originalFetch = globalThis.fetch;
+  context.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async (url, init) => {
+    assert.equal(String(url), "https://qris.example/internal/manual-topup-notify");
+    assert.equal(init.headers["x-internal-secret"], "shared-secret");
+    assert.deepEqual(JSON.parse(init.body), {
+      amount: 10_000,
+      order_id: "123",
+      telegram_id: "456",
+      username: "user",
+      first_name: "Nama",
+    });
+    return Response.json({ ok: true });
+  };
+
+  const result = await notifyTransactionBot(
+    {
+      QRIS_PAYMENT_URL: "https://qris.example",
+      QRIS_INTERNAL_SECRET: "shared-secret",
+    },
+    {
+      amount: 10_000,
+      orderId: "123",
+      telegramId: "456",
+      username: "user",
+      firstName: "Nama",
+    },
+  );
+  assert.equal(result.ok, true);
 });
