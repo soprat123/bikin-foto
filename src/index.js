@@ -442,7 +442,7 @@ async function setupTelegram(url, env) {
   const webhook = await telegramApi(env, "setWebhook", {
     url: webhookUrl,
     secret_token: env.TELEGRAM_WEBHOOK_SECRET,
-    allowed_updates: ["message"],
+    allowed_updates: ["message", "callback_query"],
     drop_pending_updates: true,
   });
 
@@ -493,6 +493,7 @@ function requiredSecrets(env) {
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_WEBHOOK_SECRET",
     "SETUP_KEY",
+    "QRIS_API_KEY",
   ].filter((key) => !env[key]);
 }
 
