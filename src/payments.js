@@ -1,4 +1,5 @@
 const MAX_INTERNAL_BODY_BYTES = 64 * 1024;
+const MAX_QRIS_IMAGE_BYTES = 1024 * 1024;
 
 export async function verifyInternalSecret(provided, expected) {
   if (!provided || !expected) return false;
@@ -68,4 +69,65 @@ export async function requestGatePayDeposit(env, input) {
     throw error;
   }
   return result.order;
+}
+
+export async function requestDynamicQris(env, amount) {
+  if (!env.QRIS_PAYMENT_URL) throw new Error("missing_qris_payment_url");
+  if (!env.QRIS_API_KEY) throw new Error("missing_qris_api_key");
+  if (!Number.isSafeInteger(amount) || amount < 1_000 || amount > 1_000_000) {
+    throw new Error("invalid_amount");
+  }
+
+  const target = new URL("/api/qris/dynamic", env.QRIS_PAYMENT_URL);
+  if (target.protocol !== "https:") throw new Error("invalid_payment_service_url");
+  const response = await fetch(target, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.QRIS_API_KEY}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ amount }),
+  });
+
+  if (!response.ok) {
+    let result = {};
+    try {
+      result = await response.json();
+    } catch {
+      // Respons error non-JSON tetap dilaporkan melalui status HTTP.
+    }
+    throw new Error(result.error || `qris_api_http_${response.status}`);
+  }
+  if (!String(response.headers.get("content-type") || "").startsWith("image/png")) {
+    throw new Error("invalid_qris_image");
+  }
+  const declaredLength = Number(response.headers.get("content-length") || 0);
+  if (declaredLength > MAX_QRIS_IMAGE_BYTES) throw new Error("qris_image_too_large");
+  const image = await response.arrayBuffer();
+  if (image.byteLength > MAX_QRIS_IMAGE_BYTES) throw new Error("qris_image_too_large");
+  return image;
+}
+
+export function buildManualTopupInvoice({ amount, orderId, expiresAt }) {
+  const rupiah = `Rp${Number(amount).toLocaleString("id-ID")}`;
+  const expires = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(expiresAt));
+
+  return `🧾 INVOICE PEMBAYARAN
+
+📦 Produk: Top Up Saldo Bot
+🔢 Jumlah: 1
+💰 Total Invoice: ${rupiah}
+🆔 Order ID: #${orderId}
+
+📱 Scan QRIS di atas menggunakan aplikasi pembayaran yang mendukung QRIS.
+
+⚠️ PENTING: Bayar sesuai nominal invoice. Pembayaran dan penambahan saldo diperiksa manual oleh admin.
+
+⏰ Batas konfirmasi: ${expires} WIB
+
+Menunggu pembayaran…`;
 }
