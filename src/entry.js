@@ -66,7 +66,7 @@ const ADMIN_COMMANDS = new Set([
 ]);
 
 const TOPUP_PROMPT =
-  "➕ TOP UP SALDO\n\nBalas pesan ini dengan nominal top up.\nMinimal Rp1.000 dan maksimal Rp1.000.000.";
+  "➕ TOP UP SALDO\n\n🎁 PROMO SPESIAL\nTop up Rp100.000 dapat bonus saldo Rp100.000!\nTotal saldo yang diterima: Rp200.000.\n\nPromo hanya berlaku 1 kali untuk setiap akun.\n\nBalas pesan ini dengan nominal top up.\nMinimal Rp1.000 dan maksimal Rp1.000.000.";
 
 const TOPUP_FORCE_REPLY = {
   force_reply: true,
