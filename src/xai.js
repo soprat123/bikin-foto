@@ -55,7 +55,7 @@ export async function pollPendingVideos(env) {
   if (!env.XAI_API_KEY || !env.DB) return;
 
   const result = await env.DB.prepare(
-    `SELECT id, telegram_id, price, xai_request_id
+    `SELECT id, telegram_id, kind, price, xai_request_id
      FROM orders
      WHERE kind IN ('Generate Video', 'Foto ke Video')
        AND status = 'processing'
@@ -184,7 +184,10 @@ async function startVideoGeneration(env, order, chatId, message) {
 
 function selectModel(order) {
   const highQuality = String(order.quality || "").toLowerCase().includes("high");
-  if (order.kind === "Generate Video" || order.kind === "Foto ke Video") {
+  if (order.kind === "Foto ke Video") {
+    return "grok-imagine-video-1.5";
+  }
+  if (order.kind === "Generate Video") {
     return highQuality ? "grok-imagine-video-1.5" : "grok-imagine-video";
   }
   return highQuality
