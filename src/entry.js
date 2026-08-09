@@ -36,6 +36,7 @@ const MAIN_MENU = {
       { text: "🖼 Generate Foto" },
       { text: "🎬 Generate Video" },
     ],
+    [{ text: "📸 Foto ke Video" }],
     [
       { text: "💰 Harga" },
       { text: "✏️ Edit Foto" },
@@ -936,7 +937,10 @@ function parseReplyContext(text) {
   if (!text) return null;
 
   const kind = extractField(text, "Jenis");
-  if (!kind || !["Generate Foto", "Generate Video", "Edit Foto"].includes(kind)) {
+  if (
+    !kind ||
+    !["Generate Foto", "Generate Video", "Edit Foto", "Foto ke Video"].includes(kind)
+  ) {
     return null;
   }
 
@@ -952,7 +956,7 @@ function parseReplyContext(text) {
 function getValidOrderPrompt(message, context) {
   if (!context) return null;
 
-  if (context.kind === "Edit Foto") {
+  if (context.kind === "Edit Foto" || context.kind === "Foto ke Video") {
     if (!message.photo?.length) return null;
     const caption = (message.caption || "").trim();
     return caption || null;
