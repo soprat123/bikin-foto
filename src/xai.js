@@ -13,8 +13,8 @@ export async function processPaidOrder(env, { order, message, chatId }) {
       error_message: null,
     });
 
-    if (order.kind === "Generate Video") {
-      await startVideoGeneration(env, order, chatId);
+    if (order.kind === "Generate Video" || order.kind === "Foto ke Video") {
+      await startVideoGeneration(env, order, chatId, message);
       return;
     }
 
@@ -57,7 +57,7 @@ export async function pollPendingVideos(env) {
   const result = await env.DB.prepare(
     `SELECT id, telegram_id, price, xai_request_id
      FROM orders
-     WHERE kind = 'Generate Video'
+     WHERE kind IN ('Generate Video', 'Foto ke Video')
        AND status = 'processing'
        AND xai_request_id IS NOT NULL
      ORDER BY id ASC
@@ -76,7 +76,7 @@ export async function pollPendingVideos(env) {
         await telegramApi(env, "sendVideo", {
           chat_id: order.telegram_id,
           video: data.video.url,
-          caption: `✅ HASIL GENERATE VIDEO\n\nOrder: #${order.id}\nBiaya: ${formatRupiah(order.price)}`,
+          caption: `✅ HASIL ${order.kind === "Foto ke Video" ? "FOTO KE VIDEO" : "GENERATE VIDEO"}\n\nOrder: #${order.id}\nBiaya: ${formatRupiah(order.price)}`,
         });
         await updateOrder(env, order.id, {
           status: "completed",
@@ -143,16 +143,24 @@ async function editImage(env, order, message) {
   return url;
 }
 
-async function startVideoGeneration(env, order, chatId) {
+async function startVideoGeneration(env, order, chatId, message) {
+  const body = {
+    model: selectModel(order),
+    prompt: order.prompt,
+    duration: parseDuration(order.duration),
+    aspect_ratio: "16:9",
+    resolution: normalizeVideoResolution(order.resolution),
+  };
+
+  if (order.kind === "Foto ke Video") {
+    const photo = message.photo?.at(-1);
+    if (!photo?.file_id) throw new Error("Foto sumber untuk video tidak ditemukan.");
+    body.image = { url: await getTelegramFileUrl(env, photo.file_id) };
+  }
+
   const data = await xaiRequest(env, "/videos/generations", {
     method: "POST",
-    body: {
-      model: selectModel(order),
-      prompt: order.prompt,
-      duration: parseDuration(order.duration),
-      aspect_ratio: "16:9",
-      resolution: normalizeVideoResolution(order.resolution),
-    },
+    body,
   });
 
   if (!data.request_id) {
@@ -176,7 +184,7 @@ async function startVideoGeneration(env, order, chatId) {
 
 function selectModel(order) {
   const highQuality = String(order.quality || "").toLowerCase().includes("high");
-  if (order.kind === "Generate Video") {
+  if (order.kind === "Generate Video" || order.kind === "Foto ke Video") {
     return highQuality ? "grok-imagine-video-1.5" : "grok-imagine-video";
   }
   return highQuality
