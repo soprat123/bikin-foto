@@ -1,6 +1,7 @@
 const MAIN_MENU = keyboard(
   [
     ["🖼 Generate Foto", "🎬 Generate Video"],
+    ["📸 Foto ke Video"],
     ["💰 Harga", "✏️ Edit Foto"],
     ["👛 Saldo", "➕ Top Up"],
     ["💬 Chat AI"],
@@ -113,6 +114,7 @@ const BOT_COMMANDS = [
   { command: "foto", description: "Menu generate foto" },
   { command: "editfoto", description: "Menu edit foto" },
   { command: "video", description: "Menu generate video" },
+  { command: "fototovideo", description: "Ubah foto menjadi video" },
   { command: "harga", description: "Lihat daftar harga" },
   { command: "topup", description: "Isi saldo" },
   { command: "saldo", description: "Periksa saldo" },
@@ -362,6 +364,18 @@ const VIDEO_GENERATE_OPTIONS = {
   },
 };
 
+const PHOTO_TO_VIDEO_OPTIONS = Object.fromEntries(
+  Object.entries(VIDEO_GENERATE_OPTIONS).map(([label, option]) => [
+    `📸 ${label}`,
+    { ...option, kind: "Foto ke Video" },
+  ]),
+);
+
+const PHOTO_TO_VIDEO_MENU = keyboard(
+  Object.keys(PHOTO_TO_VIDEO_OPTIONS).map((label) => [label]),
+  "Pilih paket foto ke video...",
+);
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -591,6 +605,16 @@ async function handleUpdate(update, env) {
     return;
   }
 
+  if (text === "📸 Foto ke Video" || command.name === "fototovideo") {
+    await sendMessage(
+      env,
+      chatId,
+      "📸 FOTO KE VIDEO\n\nPilih kualitas, resolusi, dan durasi video. Setelah memilih paket, kirim satu foto dengan instruksi gerakan pada caption.",
+      PHOTO_TO_VIDEO_MENU,
+    );
+    return;
+  }
+
   if (text === "🎬 Generate Video" || command.name === "video") {
     await sendMessage(
       env,
@@ -710,6 +734,15 @@ async function handleUpdate(update, env) {
     return;
   }
 
+  if (PHOTO_TO_VIDEO_OPTIONS[text]) {
+    await requestPhotoToVideoUpload(
+      env,
+      chatId,
+      PHOTO_TO_VIDEO_OPTIONS[text],
+    );
+    return;
+  }
+
   if (text === "➕ Top Up" || command.name === "topup") {
     await sendMessage(
       env,
@@ -754,13 +787,15 @@ async function handleUpdate(update, env) {
 }
 
 async function handleReplyContext(env, chatId, message, context) {
-  if (context.kind === "Edit Foto") {
+  if (context.kind === "Edit Foto" || context.kind === "Foto ke Video") {
     if (!message.photo?.length) {
       await sendMessage(
         env,
         chatId,
-        "Silakan balas pesan tadi dengan foto yang ingin diedit, lalu tulis instruksi edit pada caption.",
-        FOTO_EDIT_MENU,
+        context.kind === "Foto ke Video"
+          ? "Silakan balas pesan tadi dengan satu foto, lalu tulis instruksi gerakan video pada caption."
+          : "Silakan balas pesan tadi dengan foto yang ingin diedit, lalu tulis instruksi edit pada caption.",
+        context.kind === "Foto ke Video" ? PHOTO_TO_VIDEO_MENU : FOTO_EDIT_MENU,
       );
       return;
     }
@@ -769,8 +804,10 @@ async function handleReplyContext(env, chatId, message, context) {
       await sendMessage(
         env,
         chatId,
-        "Foto sudah diterima, tetapi instruksi edit belum ada. Kirim ulang foto dan isi caption dengan instruksi edit.",
-        FOTO_EDIT_MENU,
+        context.kind === "Foto ke Video"
+          ? "Foto sudah diterima, tetapi instruksi gerakan belum ada. Kirim ulang foto dan isi caption dengan gerakan yang diinginkan."
+          : "Foto sudah diterima, tetapi instruksi edit belum ada. Kirim ulang foto dan isi caption dengan instruksi edit.",
+        context.kind === "Foto ke Video" ? PHOTO_TO_VIDEO_MENU : FOTO_EDIT_MENU,
       );
       return;
     }
@@ -778,7 +815,7 @@ async function handleReplyContext(env, chatId, message, context) {
     await sendMessage(
       env,
       chatId,
-      `✅ Permintaan edit foto berhasil dicatat.\n\nJenis: ${context.kind}\nKualitas: ${context.quality}\nResolusi: ${context.resolution}\nHarga: ${context.price}\nInstruksi: ${message.caption.trim()}\n\nSaat ini alur menu sudah aktif. Integrasi otomatis ke xAI akan disambungkan pada tahap berikutnya.`,
+      `✅ Permintaan ${context.kind.toLowerCase()} berhasil dicatat.\n\nJenis: ${context.kind}\nKualitas: ${context.quality}\nResolusi: ${context.resolution}\n${context.duration ? `Durasi: ${context.duration}\n` : ""}Harga: ${context.price}\nInstruksi: ${message.caption.trim()}\n\nPermintaan akan diproses oleh sistem utama.`,
       MAIN_MENU,
     );
     return;
@@ -817,6 +854,19 @@ async function requestEditPhotoUpload(env, chatId, option) {
   await sendMessage(env, chatId, text, forceReply("Kirim foto + caption edit..."));
 }
 
+async function requestPhotoToVideoUpload(env, chatId, option) {
+  const text = `📸 FOTO KE VIDEO
+Jenis: ${option.kind}
+Kualitas: ${option.quality}
+Resolusi: ${option.resolution}
+Durasi: ${option.duration}
+Harga: ${option.price}
+
+Silakan balas pesan ini dengan satu foto, lalu tulis instruksi gerakan video pada caption.`;
+
+  await sendMessage(env, chatId, text, forceReply("Kirim foto + caption gerakan..."));
+}
+
 async function requestGenerateVideoPrompt(env, chatId, option) {
   const text = `🎬 GENERATE VIDEO\nJenis: ${option.kind}\nKualitas: ${option.quality}\nResolusi: ${option.resolution}\nDurasi: ${option.duration}\nHarga: ${option.price}\n\nSilakan balas pesan ini dengan deskripsi video yang ingin dibuat.`;
 
@@ -829,7 +879,7 @@ function parseReplyContext(text) {
   const kind = extractField(text, "Jenis");
   if (!kind) return null;
 
-  if (!["Generate Foto", "Generate Video", "Edit Foto"].includes(kind)) {
+  if (!["Generate Foto", "Generate Video", "Edit Foto", "Foto ke Video"].includes(kind)) {
     return null;
   }
 
