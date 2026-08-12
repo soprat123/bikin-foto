@@ -231,7 +231,7 @@ export async function settleGatePayDeposit(env, event) {
         `INSERT OR IGNORE INTO transactions (
           telegram_id, type, amount, balance_after, description, reference_id
         )
-        SELECT telegram_id, 'credit', ?, balance, 'Top up QRIS GatePay', ?
+        SELECT telegram_id, 'credit', ?, balance, 'Top up QRIS', ?
         FROM users WHERE telegram_id = ? AND changes() > 0`,
       )
       .bind(creditAmount, referenceId, current.telegram_id),
@@ -507,9 +507,134 @@ export async function getDatabaseStats(env) {
         (SELECT COUNT(*) FROM users) AS users,
         (SELECT COALESCE(SUM(balance), 0) FROM users) AS total_balance,
         (SELECT COUNT(*) FROM orders) AS orders,
-        (SELECT COUNT(*) FROM orders WHERE status = 'pending') AS pending_orders`,
+        (SELECT COUNT(*) FROM orders WHERE status = 'pending') AS pending_orders,
+        (SELECT COUNT(*) FROM orders WHERE status = 'completed') AS completed_orders,
+        (SELECT COUNT(*) FROM orders WHERE status = 'failed') AS failed_orders`,
     )
     .first();
+}
+
+export async function getPendingVideoOrders(env, limit = 5) {
+  const db = await ensureDatabase(env);
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 5, 10));
+  const result = await db
+    .prepare(
+      `SELECT id, telegram_id, kind, quality, resolution, duration, price,
+              prompt, external_id, status, created_at, updated_at
+       FROM orders
+       WHERE kind IN ('Generate Video', 'Foto ke Video') AND status = 'processing'
+       ORDER BY updated_at ASC
+       LIMIT ?`,
+    )
+    .bind(safeLimit)
+    .all();
+  return result.results || [];
+}
+
+export async function markOrderProcessing(env, orderId, externalId = null) {
+  const db = await ensureDatabase(env);
+  await db
+    .prepare(
+      `UPDATE orders
+       SET status = 'processing', external_id = COALESCE(?, external_id),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND status = 'pending'`,
+    )
+    .bind(externalId, orderId)
+    .run();
+}
+
+export async function markOrderCompleted(env, orderId, resultUrl) {
+  const db = await ensureDatabase(env);
+  await db
+    .prepare(
+      `UPDATE orders
+       SET status = 'completed', result_url = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND status IN ('pending', 'processing')`,
+    )
+    .bind(resultUrl, orderId)
+    .run();
+}
+
+export async function markOrderFailed(env, orderId) {
+  const db = await ensureDatabase(env);
+  await db
+    .prepare(
+      `UPDATE orders
+       SET status = 'failed', updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND status IN ('pending', 'processing')`,
+    )
+    .bind(orderId)
+    .run();
+}
+
+export async function refundOrderBalance(
+  env,
+  orderId,
+  reason = "Refund otomatis karena proses gagal",
+) {
+  const db = await ensureDatabase(env);
+  const referenceId = `refund:${orderId}`;
+
+  const results = await db.batch([
+    db
+      .prepare(
+        `UPDATE orders
+         SET status = 'refunding', updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND status = 'failed'`,
+      )
+      .bind(orderId),
+    db
+      .prepare(
+        `UPDATE users
+         SET balance = balance + (
+           SELECT price FROM orders WHERE id = ?
+         ), updated_at = CURRENT_TIMESTAMP
+         WHERE telegram_id = (
+           SELECT telegram_id FROM orders WHERE id = ?
+         ) AND changes() > 0`,
+      )
+      .bind(orderId, orderId),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO transactions (
+          telegram_id, type, amount, balance_after, description, reference_id
+        )
+        SELECT o.telegram_id, 'refund', o.price, u.balance, ?, ?
+        FROM orders o
+        JOIN users u ON u.telegram_id = o.telegram_id
+        WHERE o.id = ? AND changes() > 0`,
+      )
+      .bind(reason, referenceId, orderId),
+    db
+      .prepare(
+        `UPDATE orders
+         SET status = CASE
+           WHEN EXISTS (
+             SELECT 1 FROM transactions WHERE reference_id = ?
+           ) THEN 'refunded'
+           ELSE status
+         END,
+         updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+      )
+      .bind(referenceId, orderId),
+  ]);
+
+  const user = await db
+    .prepare(
+      `SELECT u.telegram_id, u.username, u.first_name, u.balance, o.price
+       FROM orders o
+       JOIN users u ON u.telegram_id = o.telegram_id
+       WHERE o.id = ?`,
+    )
+    .bind(orderId)
+    .first();
+
+  return {
+    refunded: Number(results[0]?.meta?.changes || 0) > 0,
+    user,
+  };
 }
 
 function toPositiveInteger(value) {
