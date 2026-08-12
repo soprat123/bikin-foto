@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "bikin-foto",
-  "main": "src/entry.js",
+  "main": "src/internal-qris-entry.js",
   "compatibility_date": "2026-08-07",
   "workers_dev": true,
   "d1_databases": [
