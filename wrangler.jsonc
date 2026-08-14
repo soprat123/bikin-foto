@@ -25,6 +25,6 @@
     "global_fetch_strictly_public"
   ],
   "vars": {
-    "QRIS_PAYMENT_URL": "https://qris-dinamis-telegram.merapatsoprat.workers.dev"
+    "QRIS_PAYMENT_URL": "https://untukqris.my.id"
   }
 }
