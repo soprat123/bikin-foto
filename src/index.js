@@ -538,7 +538,7 @@ async function handleUpdate(update, env) {
     await sendMessage(
       env,
       chatId,
-      `Selamat datang, ${firstName}! 👋\n\nBikin Foto menyediakan layanan pembuatan gambar dan video menggunakan API xAI, harga mulai dari 500 perak.\n\nSilakan pilih menu di bawah.`,
+      `Selamat datang, ${firstName}! 👋\n\nBikin Foto menyediakan layanan pembuatan gambar dan video menggunakan API xAI, harga mulai dari 500 perak.\n\n🌐 Website: https://aichatapi.web.id\n\nSilakan pilih menu di bawah.`,
       MAIN_MENU,
     );
     return;
