@@ -148,7 +148,6 @@ async function startVideoGeneration(env, order, chatId, message) {
     model: selectModel(order),
     prompt: order.prompt,
     duration: parseDuration(order.duration),
-    aspect_ratio: "16:9",
     resolution: normalizeVideoResolution(order.resolution),
   };
 
@@ -156,6 +155,11 @@ async function startVideoGeneration(env, order, chatId, message) {
     const photo = message.photo?.at(-1);
     if (!photo?.file_id) throw new Error("Foto sumber untuk video tidak ditemukan.");
     body.image = { url: await getTelegramFileUrl(env, photo.file_id) };
+    // "auto" membuat xAI memakai rasio aspek asli foto sumber (mis. potret 9:16),
+    // sehingga video tidak diregangkan/gepeng seperti saat dipaksa 16:9.
+    body.aspect_ratio = "auto";
+  } else {
+    body.aspect_ratio = "16:9";
   }
 
   const data = await xaiRequest(env, "/videos/generations", {
