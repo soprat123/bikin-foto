@@ -155,9 +155,11 @@ async function startVideoGeneration(env, order, chatId, message) {
     const photo = message.photo?.at(-1);
     if (!photo?.file_id) throw new Error("Foto sumber untuk video tidak ditemukan.");
     body.image = { url: await getTelegramFileUrl(env, photo.file_id) };
-    // "auto" membuat xAI memakai rasio aspek asli foto sumber (mis. potret 9:16),
-    // sehingga video tidak diregangkan/gepeng seperti saat dipaksa 16:9.
-    body.aspect_ratio = "auto";
+    // Sengaja TIDAK mengirim aspect_ratio di sini. Menurut dokumentasi xAI,
+    // "auto" bukan nilai enum yang valid untuk endpoint video (hanya 1:1,
+    // 16:9, 9:16, 4:3, 3:4, 3:2, 2:3) dan pernah menyebabkan invalid_argument.
+    // Saat aspect_ratio dihilangkan, xAI otomatis memakai rasio aspek foto
+    // sumber untuk image-to-video, sehingga video tidak gepeng/distorsi.
   } else {
     body.aspect_ratio = "16:9";
   }
